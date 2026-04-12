@@ -8,11 +8,16 @@ public class GameState{
     public List<Round> rounds;
 
     private boolean gameOver = false;
+    private int totalImpostors;
     
 
     public GameState(List<Agent> agents){
 
         this.agents = agents;
+
+        int num = 0;
+        for(Agent agent: agents)if(agent.isImpostor())num++;
+        this.totalImpostors = num;
     }
 
 
@@ -24,7 +29,7 @@ public class GameState{
     public int currAgents(){
 
         int count = 0;
-        for(Agent agent: this.agents) if(agent.isALive());
+        for(Agent agent: this.agents) if(agent.isALive()) count++;
 
         return count;
     }
@@ -32,9 +37,14 @@ public class GameState{
     public int currImpostors(){
 
         int count = 0;
-        for(Agent agent: this.agents) if(agent.isALive() && agent.isImpostor());
+        for(Agent agent: this.agents) if(agent.isALive() && agent.isImpostor()) count++;
 
         return count;
+    }
+
+    public int totalImpostors(){
+
+        return this.totalImpostors;
     }
 
     public Agent getAgent(int id){
