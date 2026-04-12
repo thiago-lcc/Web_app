@@ -8,7 +8,7 @@ public class GameState{
     public List<Round> rounds;
 
     private boolean gameOver = false;
-    private int totalImpostors;
+    private final int totalImpostors;
     
 
     public GameState(List<Agent> agents){
@@ -52,6 +52,11 @@ public class GameState{
         for(Agent agent: this.agents) if(agent.getId() == id) return agent;
 
         throw new IllegalArgumentException("Id: " + id + " not found.");
+    }
+
+    public void endGame(){
+
+        this.gameOver = true;
     }
 
     public boolean isOver(){
