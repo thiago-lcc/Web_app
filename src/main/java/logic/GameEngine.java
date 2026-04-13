@@ -12,24 +12,24 @@ import java.util.Scanner;
 public class GameEngine {
 
     //placeholder
-    public static String getQuestion(){
+    public String getQuestion(){
 
         System.out.println("Enter your question:");
         Scanner scanner = new Scanner(System.in);
-        return scanner.next();
+        return scanner.nextLine();
     }
 
     //placeholder
-    public static void eliminatePlayer(List<Agent> agents){
+    public void eliminatePlayer(List<Agent> agents){
 
         Scanner scanner = new Scanner(System.in);
         int guess = scanner.nextInt();
         for(Agent agent: agents) if(agent.getId() == guess && agent.isALive()) agent.eliminate();
     }
 
-    public static Round playRound(GameState gameState){
+    public Round playRound(GameState gameState){
 
-        String question = getQuestion();
+        String question = this.getQuestion();
 
         List<Agent> agents = gameState.agents;
         List<Message> messages = AiService.generateAnswers(agents);
@@ -38,19 +38,17 @@ public class GameEngine {
             messages.add(agent.getMessage(question));
 
         for(Message message: messages) System.out.println(message.agentId() + ": " + message.content());
-        eliminatePlayer(agents);
+        this.eliminatePlayer(agents);
 
         if(gameState.currImpostors() == 0 || gameState.currAIs() <= 4 - gameState.totalImpostors())
             gameState.endGame();
 
-        return new Round(question, messages, gameState.roundNum());
+        return new Round(question, messages, gameState.roundNum()+1);
     }
 
-    public static void gameloop(List<Agent> agents){
+    public void run(GameState gameState){
 
-        GameState gameState = new GameState(agents);
-
-        while(!gameState.isOver()) playRound(gameState);
+        while(!gameState.isOver()) gameState.rounds.add(this.playRound(gameState));
 
     }
 }

@@ -23,7 +23,8 @@ public class GameState{
 
     public int roundNum(){
 
-        return this.rounds.size();
+        try {return this.rounds.size();}
+        catch(NullPointerException e) {return 0;}
     }
     
     public int currAgents(){
