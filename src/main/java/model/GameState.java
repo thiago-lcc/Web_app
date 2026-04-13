@@ -42,6 +42,11 @@ public class GameState{
         return count;
     }
 
+    public int currAIs(){
+
+        return currAgents() - currImpostors();
+    }
+
     public int totalImpostors(){
 
         return this.totalImpostors;

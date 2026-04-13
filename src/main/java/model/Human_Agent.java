@@ -4,7 +4,7 @@ import java.util.Scanner;
 
 public class Human_Agent extends Agent {
     
-    private boolean is_impostor = true;
+    private final boolean is_impostor = true;
 
     
     public Human_Agent(int id) {
@@ -12,6 +12,7 @@ public class Human_Agent extends Agent {
     }
 
     //placeholder
+    @Override
     public Message getMessage(String question){
 
         System.out.println(question);

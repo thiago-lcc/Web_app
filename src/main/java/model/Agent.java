@@ -31,4 +31,8 @@ public class Agent{
         return this.is_impostor;
     }
 
+    //placeholder
+    public Message getMessage(String question) {
+        return new Message(-1, "a");
+    }
 }

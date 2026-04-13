@@ -13,7 +13,7 @@ public class AiService {
         List<Message> answers = new ArrayList<>();
 
         for(Agent agent: agents)
-            if(!agent.isImpostor())
+            if(!agent.isImpostor() && agent.isALive())
                 answers.add(new Message(agent.getId(), "This message is from agent " + agent.getId()));
 
 
