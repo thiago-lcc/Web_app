@@ -5,6 +5,8 @@ import model.Agent;
 import model.GameState;
 import model.Message;
 import model.Round;
+
+import java.io.IOException;
 import java.util.List;
 import java.util.Scanner;
 
@@ -20,30 +22,43 @@ public class GameEngine {
     }
 
     //placeholder
-    public void eliminatePlayer(List<Agent> agents){
+    public void eliminatePlayer(GameState gameState){
 
         Scanner scanner = new Scanner(System.in);
         int guess = scanner.nextInt();
-        for(Agent agent: agents) if(agent.getId() == guess && agent.isALive()) agent.eliminate();
+        gameState.getAgent(guess).eliminate();
     }
 
     public Round playRound(GameState gameState){
 
         String question = this.getQuestion();
 
-        List<Agent> agents = gameState.agents;
-        List<Message> messages = AiService.generateAnswers(agents);
+        List<Agent> ais = gameState.currAis();
+        List<Agent> impostors = gameState.currImpostors();
 
-        for(Agent agent: agents) if(agent.isImpostor() && agent.isALive())
-            messages.add(agent.getMessage(question));
 
-        for(Message message: messages) System.out.println(message.agentId() + ": " + message.content());
-        this.eliminatePlayer(agents);
+        try {
 
-        if(gameState.currImpostors() == 0 || gameState.currAIs() <= 4 - gameState.totalImpostors())
-            gameState.endGame();
+            List<Message> messages = AiService.getMessages(question, ais);
+            for(Agent impostor: impostors) messages.add(impostor.getMessage(question));
 
-        return new Round(question, messages, gameState.roundNum()+1);
+            messages.sort((a,b) -> a.agentId() - b.agentId());
+
+
+            for(Message message: messages) System.out.println(message.agentId() + ": " + message.content());
+            this.eliminatePlayer(gameState);
+
+
+            if(gameState.numCurrImpostors() == 0 || gameState.numCurrAIs() <= 4 - gameState.totalImpostors())
+                gameState.endGame();
+
+            return new Round(question, messages, gameState.roundNum()+1);
+            }
+
+        catch (IOException e){
+
+            throw new RuntimeException("Failed to get AI answers", e);
+        }
     }
 
     public void run(GameState gameState){

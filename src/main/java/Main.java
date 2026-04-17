@@ -19,7 +19,6 @@ public class Main {
         agents.add(new Agent(7,false));
         agents.add(new Agent(8,true));
 
-        for(Agent agent: agents) System.out.println(agent.isImpostor());
 
         GameState gameState = new GameState(agents);
 

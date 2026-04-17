@@ -1,11 +1,12 @@
 package model;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class GameState{
 
     public List<Agent> agents;
-    public List<Round> rounds;
+    public List<Round> rounds = new ArrayList<>();
 
     private boolean gameOver = false;
     private final int totalImpostors;
@@ -27,7 +28,7 @@ public class GameState{
         catch(NullPointerException e) {return 0;}
     }
     
-    public int currAgents(){
+    public int numCurrAgents(){
 
         int count = 0;
         for(Agent agent: this.agents) if(agent.isALive()) count++;
@@ -35,7 +36,23 @@ public class GameState{
         return count;
     }
 
-    public int currImpostors(){
+    public List<Agent> currImpostors(){
+
+        List<Agent> impostors = new ArrayList<>();
+
+        for(Agent agent: agents) if(agent.isALive() && agent.isImpostor()) impostors.add(agent);
+        return impostors;
+    }
+
+    public List<Agent> currAis(){
+
+        List<Agent> ais = new ArrayList<>();
+
+        for(Agent agent: agents) if(agent.isALive() && !agent.isImpostor()) ais.add(agent);
+        return ais;
+    }
+
+    public int numCurrImpostors(){
 
         int count = 0;
         for(Agent agent: this.agents) if(agent.isALive() && agent.isImpostor()) count++;
@@ -43,9 +60,9 @@ public class GameState{
         return count;
     }
 
-    public int currAIs(){
+    public int numCurrAIs(){
 
-        return currAgents() - currImpostors();
+        return numCurrAgents() - numCurrImpostors();
     }
 
     public int totalImpostors(){
