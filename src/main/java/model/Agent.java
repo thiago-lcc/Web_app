@@ -1,12 +1,11 @@
 package model;
 
-import java.util.Scanner;
 
 public class Agent{
 
     private final int game_id;
     private boolean is_alive = true;
-    private boolean is_impostor = false;
+    private final boolean is_impostor;
 
     public Agent(int id, boolean is_impostor){
 
@@ -16,12 +15,12 @@ public class Agent{
 
     public int getId(){
 
-        return this.game_id;
+        return game_id;
     }
 
     public boolean isALive(){
 
-        return this.is_alive;
+        return is_alive;
     }
 
     public void eliminate(){
@@ -31,14 +30,7 @@ public class Agent{
 
     public boolean isImpostor(){
 
-        return this.is_impostor;
+        return is_impostor;
     }
 
-    //placeholder
-    public Message getMessage(String question){
-
-        System.out.println(question);
-        Scanner scanner = new Scanner(System.in);
-        return new Message(this.getId(), scanner.nextLine());
-    }
 }

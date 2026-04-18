@@ -5,7 +5,7 @@ import java.util.List;
 
 public class GameState{
 
-    public List<Agent> agents;
+    private final List<Agent> agents;
     public List<Round> rounds = new ArrayList<>();
 
     private boolean gameOver = false;
@@ -17,21 +17,21 @@ public class GameState{
         this.agents = agents;
 
         int num = 0;
-        for(Agent agent: agents)if(agent.isImpostor())num++;
+        for(Agent agent: agents) if(agent.isImpostor())num++;
         this.totalImpostors = num;
     }
 
 
     public int roundNum(){
 
-        try {return this.rounds.size();}
+        try {return rounds.size();}
         catch(NullPointerException e) {return 0;}
     }
     
     public int numCurrAgents(){
 
         int count = 0;
-        for(Agent agent: this.agents) if(agent.isALive()) count++;
+        for(Agent agent: agents) if(agent.isALive()) count++;
 
         return count;
     }
@@ -55,7 +55,7 @@ public class GameState{
     public int numCurrImpostors(){
 
         int count = 0;
-        for(Agent agent: this.agents) if(agent.isALive() && agent.isImpostor()) count++;
+        for(Agent agent: agents) if(agent.isALive() && agent.isImpostor()) count++;
 
         return count;
     }
@@ -67,12 +67,12 @@ public class GameState{
 
     public int totalImpostors(){
 
-        return this.totalImpostors;
+        return totalImpostors;
     }
 
     public Agent getAgent(int id){
 
-        for(Agent agent: this.agents) if(agent.getId() == id) return agent;
+        for(Agent agent: agents) if(agent.getId() == id) return agent;
 
         throw new IllegalArgumentException("Id: " + id + " not found.");
     }
@@ -84,6 +84,6 @@ public class GameState{
 
     public boolean isOver(){
 
-        return this.gameOver;
+        return gameOver;
     }
 }

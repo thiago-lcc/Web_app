@@ -29,9 +29,19 @@ public class GameEngine {
         gameState.getAgent(guess).eliminate();
     }
 
+    //placeholder
+    public static Message getMessage(String question, Agent impostor){
+
+        System.out.println(question);
+        Scanner scanner = new Scanner(System.in);
+        return new Message(impostor.getId(), scanner.nextLine());
+    }
+
+
+
     public Round playRound(GameState gameState){
 
-        String question = this.getQuestion();
+        String question = getQuestion();
 
         List<Agent> ais = gameState.currAis();
         List<Agent> impostors = gameState.currImpostors();
@@ -39,8 +49,9 @@ public class GameEngine {
 
         try {
 
+            // gets agent messages
             List<Message> messages = AiService.getMessages(question, ais);
-            for(Agent impostor: impostors) messages.add(impostor.getMessage(question));
+            for(Agent impostor: impostors) messages.add(getMessage(question, impostor));
 
             messages.sort((a,b) -> a.agentId() - b.agentId());
 
@@ -48,7 +59,7 @@ public class GameEngine {
             for(Message message: messages) System.out.println(message.agentId() + ": " + message.content());
             this.eliminatePlayer(gameState);
 
-
+            // win conditions
             if(gameState.numCurrImpostors() == 0 || gameState.numCurrAIs() <= 4 - gameState.totalImpostors())
                 gameState.endGame();
 
@@ -63,7 +74,7 @@ public class GameEngine {
 
     public void run(GameState gameState){
 
-        while(!gameState.isOver()) gameState.rounds.add(this.playRound(gameState));
+        while(!gameState.isOver()) gameState.rounds.add(playRound(gameState));
 
     }
 }
