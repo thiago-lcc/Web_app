@@ -10,59 +10,37 @@ public class GameState{
 
     private boolean gameOver = false;
     private final int totalImpostors;
-    
+
 
     public GameState(List<Agent> agents){
 
         this.agents = agents;
-
-        int num = 0;
-        for(Agent agent: agents) if(agent.isImpostor())num++;
-        this.totalImpostors = num;
+        this.totalImpostors = numCurrImpostors();
     }
 
 
     public int roundNum(){
 
-        try {return rounds.size();}
-        catch(NullPointerException e) {return 0;}
-    }
-    
-    public int numCurrAgents(){
-
-        int count = 0;
-        for(Agent agent: agents) if(agent.isALive()) count++;
-
-        return count;
+       return rounds.size();
     }
 
     public List<Agent> currImpostors(){
 
-        List<Agent> impostors = new ArrayList<>();
-
-        for(Agent agent: agents) if(agent.isALive() && agent.isImpostor()) impostors.add(agent);
-        return impostors;
+        return agents.stream()
+                .filter(a -> a.isALive() && a.isImpostor())
+                .toList();
     }
 
     public List<Agent> currAis(){
 
-        List<Agent> ais = new ArrayList<>();
-
-        for(Agent agent: agents) if(agent.isALive() && !agent.isImpostor()) ais.add(agent);
-        return ais;
+        return agents.stream()
+                .filter(a -> a.isALive() && !a.isImpostor())
+                .toList();
     }
 
     public int numCurrImpostors(){
 
-        int count = 0;
-        for(Agent agent: agents) if(agent.isALive() && agent.isImpostor()) count++;
-
-        return count;
-    }
-
-    public int numCurrAIs(){
-
-        return numCurrAgents() - numCurrImpostors();
+        return currImpostors().size();
     }
 
     public int totalImpostors(){
