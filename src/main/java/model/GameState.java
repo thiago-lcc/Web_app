@@ -43,6 +43,11 @@ public class GameState{
         return currImpostors().size();
     }
 
+    public int numCurrAis(){
+
+        return currAis().size();
+    }
+
     public int totalImpostors(){
 
         return totalImpostors;

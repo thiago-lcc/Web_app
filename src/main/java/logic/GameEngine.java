@@ -60,7 +60,7 @@ public class GameEngine {
             this.eliminatePlayer(gameState);
 
             // win conditions
-            if(gameState.numCurrImpostors() == 0 || gameState.numCurrAIs() <= 4 - gameState.totalImpostors())
+            if(gameState.numCurrImpostors() == 0 || gameState.numCurrAis() <= 4 - gameState.totalImpostors())
                 gameState.endGame();
 
             return new Round(question, messages, gameState.roundNum()+1);
