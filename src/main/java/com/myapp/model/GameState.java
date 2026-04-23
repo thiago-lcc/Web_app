@@ -1,4 +1,4 @@
-package model;
+package com.myapp.model;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -60,13 +60,17 @@ public class GameState{
         throw new IllegalArgumentException("Id: " + id + " not found.");
     }
 
-    public void endGame(){
-
-        this.gameOver = true;
-    }
-
     public boolean isOver(){
 
-        return gameOver;
+        if(gameOver) return true;
+
+        else {
+            // win conditions
+            if (numCurrImpostors() == 0 || numCurrAis() <= 4 - totalImpostors()) {
+                this.gameOver = true;
+            }
+
+            return gameOver;
+        }
     }
 }

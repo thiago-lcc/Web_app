@@ -1,6 +1,6 @@
-package ai;
-import model.Agent;
-import model.Message;
+package com.myapp.logic;
+import com.myapp.model.Agent;
+import com.myapp.model.Message;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -8,15 +8,16 @@ import java.util.List;
 import io.github.cdimascio.dotenv.Dotenv;
 import okhttp3.*;
 import org.json.JSONObject;
+import org.springframework.stereotype.Service;
 
-
+@Service
 public class AiService {
 
     private final static String apiKey = Dotenv.load().get("OPENAI_API_KEY");
     private final static OkHttpClient client = new OkHttpClient();
 
 
-    private static String createPrompt(String question, int numAiAgents){
+    private String createPrompt(String question, int numAiAgents){
 
         return  "You are part of a game where AIs pretend to be human while answering questions while among actual humans.\n" +
                 "Your NUMBER 1 GOAL is to blend in and not let anyone know you're an AI. A Turing test of sorts." +
@@ -34,7 +35,7 @@ public class AiService {
                 "Question: " + question;
     }
 
-    private static List<String> generateAnswers(String question, int numAiAgents) throws IOException {
+    private List<String> generateAnswers(String question, int numAiAgents) throws IOException {
 
         String jsonBody = new JSONObject()
                 .put("model", "gpt-4.1-mini")
@@ -73,7 +74,7 @@ public class AiService {
     }
 
 
-    public static List<Message> getMessages(String question, List<Agent> agents) throws IOException{
+    public List<Message> getMessages(String question, List<Agent> agents) throws IOException{
 
         List<Message> messages = new ArrayList<>();
 
