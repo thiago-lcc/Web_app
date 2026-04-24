@@ -5,7 +5,9 @@ import com.myapp.model.Agent;
 import com.myapp.model.GameState;
 import com.myapp.model.Message;
 import com.myapp.model.Round;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.UUID;
@@ -24,6 +26,7 @@ public class GameController {
         this.engine = gameEngine;
     }
 
+
     @PostMapping
     public String startGame(@RequestBody List<Integer> impostorIds){
 
@@ -39,29 +42,28 @@ public class GameController {
 
     }
 
+
     @PostMapping("/{gameId}/round")
     public Round playRound(@PathVariable String gameId, @RequestBody RoundRequest request){
 
-        GameState game = engine.games.get(gameId);
-        if(game == null) throw new NullPointerException("Game not found");
+        GameState game = engine.getGame(gameId);
 
         return engine.playRound(game, request.impostorMessages, request.question);
     }
 
+
     @PostMapping("/{gameId}/eliminate")
     public void eliminateAgent(@PathVariable String gameId, @RequestBody int agentId){
 
-        GameState game = engine.games.get(gameId);
-        if(game == null) throw new NullPointerException("Game not found");
+        GameState game = engine.getGame(gameId);
 
         engine.eliminateAgent(game, agentId);
-        game.isOver();
     }
 
     @GetMapping("/{gameId}")
     public GameState getGame(@PathVariable String gameId){
 
-        return engine.games.get(gameId);
+        return engine.getGame(gameId);
     }
 
 }

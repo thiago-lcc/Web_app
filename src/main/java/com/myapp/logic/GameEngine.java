@@ -4,7 +4,9 @@ import com.myapp.model.Agent;
 import com.myapp.model.GameState;
 import com.myapp.model.Message;
 import com.myapp.model.Round;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.util.*;
@@ -22,7 +24,28 @@ public class GameEngine {
     }
 
 
+    public GameState getGame(String gameId){
+
+        GameState game = games.get(gameId);
+        if(game == null)
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Game not found");
+
+        return game;
+    }
+
     public List<Agent> createAgents(List<Integer> impostorIds){
+
+        Set<Integer> set = new HashSet<>(impostorIds);
+
+        if (set.size() != impostorIds.size()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Duplicate IDs");
+        }
+
+        for(int impostorId: impostorIds)
+            if(impostorId > 8 || impostorId < 1)
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "ID: " + impostorId +" is out of permitted range [1,8]");
+
 
         List<Agent> agents = new ArrayList<>();
 
@@ -35,10 +58,16 @@ public class GameEngine {
 
     public Round playRound(GameState game, List<Message> impostorMessages, String question){
 
+        if(game.getPhase() != GameState.Phase.WAITING_FOR_ROUND)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Cannot play round in current phase");
+
         List<Agent> ais = game.currAis();
 
         if(impostorMessages.size() != game.numCurrImpostors())
-            throw new RuntimeException("Number of impostor answers and impostors don't match");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Number of impostor answers and impostors don't match"
+            );
 
         try {
 
@@ -49,23 +78,41 @@ public class GameEngine {
 
             Round round = new Round(question, messages, game.roundNum()+1);
             game.rounds.add(round);
+            game.setPhase(GameState.Phase.WAITING_FOR_ELIMINATION);
 
             return round;
             }
 
         catch (IOException e){
 
-            throw new RuntimeException("Failed to get AI answers", e);
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to get AI answers",
+                    e
+            );
         }
     }
 
     public void eliminateAgent(GameState game, int id){
 
-        Agent agent = game.getAgent(id);
+        if(game.getPhase() != GameState.Phase.WAITING_FOR_ELIMINATION)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot eliminate agent in current phase");
 
-        if(!agent.isALive()) throw new RuntimeException("Agent was already eliminated");
+        try {
+            Agent agent = game.getAgent(id);
 
-        agent.eliminate();
+            if(!agent.isALive())
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Agent was already eliminated");
+
+            agent.eliminate();
+
+            if(!game.isOver()) game.setPhase(GameState.Phase.WAITING_FOR_ROUND);
+            else game.setPhase(GameState.Phase.OVER);
+
+        }
+        catch (IllegalArgumentException e){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Agent does not exist");
+        }
 
     }
 

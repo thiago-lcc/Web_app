@@ -5,11 +5,18 @@ import java.util.List;
 
 public class GameState{
 
+    public enum Phase{
+        WAITING_FOR_ROUND,
+        WAITING_FOR_ELIMINATION,
+        OVER
+    }
+
     private final List<Agent> agents;
     public List<Round> rounds = new ArrayList<>();
 
     private boolean gameOver = false;
     private final int totalImpostors;
+    private Phase phase;
 
 
     public GameState(List<Agent> agents){
@@ -72,5 +79,13 @@ public class GameState{
 
             return gameOver;
         }
+    }
+
+    public Phase getPhase() {
+        return phase;
+    }
+
+    public void setPhase(Phase phase) {
+        this.phase = phase;
     }
 }
