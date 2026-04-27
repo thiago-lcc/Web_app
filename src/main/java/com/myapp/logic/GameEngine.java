@@ -25,7 +25,6 @@ public class GameEngine {
         this.aiService = aiService;
     }
 
-    //later make critical methods thread safe
 
 
     public String createGame(int numImpostors) {
@@ -51,7 +50,7 @@ public class GameEngine {
         return game;
     }
 
-    public List<Integer> createImpostorIds(int numImpostors) {
+    private List<Integer> createImpostorIds(int numImpostors) {
 
         return new Random()
                 //Ids must be in the interval [1,8]
@@ -64,60 +63,69 @@ public class GameEngine {
 
     public String assignImpostor(GameState game){
 
-        if(game.getPhase() != GameState.Phase.WAITING_FOR_START)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Cannot assign impostor after the game started");
+        synchronized (game){
 
-        List<Integer> availableIds = game.availableImpostorIds();
+            if(game.getPhase() != GameState.Phase.WAITING_FOR_START)
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Cannot assign impostor after the game started");
 
-        if (availableIds.isEmpty())
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "All impostor roles are already assigned");
+            List<Integer> availableIds = game.availableImpostorIds();
 
-        int impostorId = availableIds.get(
-                new Random().nextInt(availableIds.size()));
+            if (availableIds.isEmpty())
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "All impostor roles are already assigned");
 
-        String impostorToken = UUID.randomUUID()
-                .toString()
-                .replace("-", "");
+            int impostorId = availableIds.get(
+                 new Random().nextInt(availableIds.size()));
 
-        game.setImpostorToken(impostorToken, impostorId);
-        return impostorToken;
+            String impostorToken = UUID.randomUUID()
+                    .toString()
+                    .replace("-", "");
+
+            game.setImpostorToken(impostorToken, impostorId);
+            return impostorToken;
+        }
 
     }
 
     public String assignGuesser(GameState game) {
 
-        if(game.getPhase() != GameState.Phase.WAITING_FOR_START)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Cannot assign guesser after the game started");
+        synchronized (game){
 
-        if (game.getGuesserToken() != null)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Guesser role was already assigned");
+            if(game.getPhase() != GameState.Phase.WAITING_FOR_START)
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Cannot assign guesser after the game started");
 
-        String guesserToken = UUID.randomUUID()
-                .toString()
-                .replace("-", "");
+            if (game.getGuesserToken() != null)
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Guesser role was already assigned");
 
-        game.setGuesserToken(guesserToken);
-        return guesserToken;
+            String guesserToken = UUID.randomUUID()
+                    .toString()
+                    .replace("-", "");
+
+            game.setGuesserToken(guesserToken);
+            return guesserToken;
+        }
     }
 
     public void startGame(GameState game){
 
-        if(game.getPhase() != GameState.Phase.WAITING_FOR_START)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Game has already started");
+        synchronized (game){
 
-        if(!game.canStart())
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Not all players have joined yet");
+            if(game.getPhase() != GameState.Phase.WAITING_FOR_START)
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Game has already started");
 
-        game.setPhase(GameState.Phase.WAITING_FOR_QUESTION);
+            if(!game.canStart())
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Not all players have joined yet");
+
+            game.setPhase(GameState.Phase.WAITING_FOR_QUESTION);
+        }
     }
 
-    public List<Agent> createAgents(int numImpostors) {
+    private List<Agent> createAgents(int numImpostors) {
 
         List<Integer> impostorIds = createImpostorIds(numImpostors);
 
@@ -133,100 +141,110 @@ public class GameEngine {
 
     public void addImpostorMessage(GameState game, String answer, String token){
 
-        if(game.getPhase() != GameState.Phase.WAITING_FOR_ANSWERS)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Cannot accept answers at current phase");
+        synchronized (game) {
 
-        try{
-            int id = game.getIdByToken(token);
-            if(!game.getAgent(id).isALive())
+            if (game.getPhase() != GameState.Phase.WAITING_FOR_ANSWERS)
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Cannot accept answers from agents that were eliminated");
+                        "Cannot accept answers at current phase");
 
-            Message message = new Message(id, answer);
-            game.addImpostorMessage(message);
+            try {
+                int id = game.getIdByToken(token);
+                if (!game.getAgent(id).isALive())
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Cannot accept answers from agents that were eliminated");
 
-            if(game.numImpostorMessages() == game.numCurrImpostors())
-                game.setPhase(GameState.Phase.WAITING_FOR_ROUND);
+                Message message = new Message(id, answer);
+                game.addImpostorMessage(message);
+
+                if (game.numImpostorMessages() == game.numCurrImpostors())
+                    game.setPhase(GameState.Phase.WAITING_FOR_ROUND);
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+            }
         }
-        catch (IllegalArgumentException e){
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());}
     }
 
     public void addNewQuestion(GameState game, String question, String token){
 
-        if(game.getPhase() != GameState.Phase.WAITING_FOR_QUESTION)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Cannot accept questions at current phase");
+        synchronized (game){
 
-        if(!token.equals(game.getGuesserToken()))
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Guesser token does not match");
+            if(game.getPhase() != GameState.Phase.WAITING_FOR_QUESTION)
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Cannot accept questions at current phase");
+            if(!token.equals(game.getGuesserToken()))
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Guesser token does not match");
 
-        game.setCurrQuestion(question);
+            game.setCurrQuestion(question);
 
-        game.setPhase(GameState.Phase.WAITING_FOR_ANSWERS);
+            game.setPhase(GameState.Phase.WAITING_FOR_ANSWERS);
+        }
     }
 
     public Round playRound(GameState game) {
 
-        if (game.getPhase() != GameState.Phase.WAITING_FOR_ROUND)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Cannot play round in current phase");
+        synchronized (game) {
 
-        List<Agent> ais = game.currAis();
+            if (game.getPhase() != GameState.Phase.WAITING_FOR_ROUND)
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Cannot play round in current phase");
 
-        try {
+            List<Agent> ais = game.currAis();
 
-            List<Message> messages = aiService.getMessages(game.getCurrQuestion(), ais);
-            messages.addAll(game.getImpostorMessages());
+            try {
 
-            messages.sort((a, b) -> a.agentId() - b.agentId());
+                List<Message> messages = aiService.getMessages(game.getCurrQuestion(), ais);
+                messages.addAll(game.getImpostorMessages());
 
-            Round round = new Round(game.getCurrQuestion(), messages, game.roundNum() + 1);
-            game.addRound(round);
-            game.setPhase(GameState.Phase.WAITING_FOR_ELIMINATION);
+                messages.sort((a, b) -> a.agentId() - b.agentId());
 
-            game.clearImpostorMessages();
-            game.discardCurrQuestion();
+                Round round = new Round(game.getCurrQuestion(), messages, game.roundNum() + 1);
+                game.addRound(round);
+                game.setPhase(GameState.Phase.WAITING_FOR_ELIMINATION);
 
-            return round;
-        }
-        catch (IOException e) {
+                game.clearImpostorMessages();
+                game.discardCurrQuestion();
 
-            throw new ResponseStatusException(
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Failed to get AI answers",
-                    e
-            );
+                return round;
+            } catch (IOException e) {
+
+                throw new ResponseStatusException(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        "Failed to get AI answers",
+                        e
+                );
+            }
         }
     }
 
     public void eliminateAgent(GameState game, int id, String token) {
 
-        if (game.getPhase() != GameState.Phase.WAITING_FOR_ELIMINATION)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Cannot eliminate agent in current phase");
+        synchronized (game) {
 
-        if (!token.equals(game.getGuesserToken()))
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Guesser token does not match");
+            if (game.getPhase() != GameState.Phase.WAITING_FOR_ELIMINATION)
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Cannot eliminate agent in current phase");
 
-        try {
-            Agent agent = game.getAgent(id);
+            if (!token.equals(game.getGuesserToken()))
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Guesser token does not match");
 
-            if (!agent.isALive())
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Agent was already eliminated");
+            try {
+                Agent agent = game.getAgent(id);
 
-            agent.eliminate();
+                if (!agent.isALive())
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Agent was already eliminated");
 
-            if (!game.isOver())
-                game.setPhase(GameState.Phase.WAITING_FOR_ROUND);
-            else
-                game.setPhase(GameState.Phase.OVER);
+                agent.eliminate();
 
-        } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Agent does not exist");
+                if (!game.isOver())
+                    game.setPhase(GameState.Phase.WAITING_FOR_ROUND);
+                else
+                    game.setPhase(GameState.Phase.OVER);
+
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Agent does not exist");
+            }
         }
     }
 
