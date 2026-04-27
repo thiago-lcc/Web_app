@@ -1,23 +1,21 @@
 package com.myapp.controller;
 
 import com.myapp.logic.GameEngine;
-import com.myapp.model.Agent;
 import com.myapp.model.GameState;
-import com.myapp.model.Message;
 import com.myapp.model.Round;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/game")
 public class GameController {
 
-    public record RoundRequest(String question, List<Message> impostorMessages){}
-
+    //add more request and response formats later
+    public record QuestionRequestBody(String guesserToken, String question){}
+    public record AnswerRequestBody(String impostorToken, String answer){}
+    public record EliminateRequestBody(String guesserToken, int eliminatedId){}
+    public record GetGameResponse(String currQuestion, List<Round> rounds, GameState.Phase gamePhase){}
 
     private final GameEngine engine;
 
@@ -28,42 +26,67 @@ public class GameController {
 
 
     @PostMapping
-    public String startGame(@RequestBody List<Integer> impostorIds){
+    public String createGame(@RequestBody int numImpostors){
 
-        List<Agent> agents = engine.createAgents(impostorIds);
-
-        String gameId = UUID.randomUUID()
-                .toString()
-                .replace("-", "");
-
-        engine.games.put(gameId, new GameState(agents));
-
-        return gameId;
+        return engine.createGame(numImpostors);
 
     }
 
+    @PostMapping("/{gameId}/join/impostor")
+    public String joinAsImpostor(@PathVariable String gameId){
+
+        GameState game = engine.getGame(gameId);
+        return engine.assignImpostor(game);
+    }
+
+    @PostMapping("/{gameId}/join/guesser")
+    public String joinAsGuesser(@PathVariable String gameId){
+
+        GameState game = engine.getGame(gameId);
+        return engine.assignGuesser(game);
+    }
+
+    @PostMapping("/{gameId}/start")
+    public void startGame(@PathVariable String gameId){
+
+        GameState game = engine.getGame(gameId);
+        engine.startGame(game);
+    }
+
+    @PostMapping("/{gameId}/question")
+    public void askQuestion(@PathVariable String gameId, @RequestBody QuestionRequestBody req){
+
+        GameState game = engine.getGame(gameId);
+        engine.addNewQuestion(game, req.question(), req.guesserToken());
+    }
+
+    @PostMapping("/{gameId}/answer")
+    public void answerQuestion(@PathVariable String gameId, @RequestBody AnswerRequestBody req){
+
+        GameState game = engine.getGame(gameId);
+        engine.addImpostorMessage(game, req.answer(), req.impostorToken());
+    }
 
     @PostMapping("/{gameId}/round")
-    public Round playRound(@PathVariable String gameId, @RequestBody RoundRequest request){
+    public Round playRound(@PathVariable String gameId){
 
         GameState game = engine.getGame(gameId);
-
-        return engine.playRound(game, request.impostorMessages, request.question);
+        return engine.playRound(game);
     }
 
-
     @PostMapping("/{gameId}/eliminate")
-    public void eliminateAgent(@PathVariable String gameId, @RequestBody int agentId){
+    public void eliminateAgent(@PathVariable String gameId, @RequestBody EliminateRequestBody req){
 
         GameState game = engine.getGame(gameId);
-
-        engine.eliminateAgent(game, agentId);
+        engine.eliminateAgent(game, req.eliminatedId(), req.guesserToken());
     }
 
     @GetMapping("/{gameId}")
-    public GameState getGame(@PathVariable String gameId){
+    public GetGameResponse getGame(@PathVariable String gameId){
 
-        return engine.getGame(gameId);
+        GameState game = engine.getGame(gameId);
+
+        return new GetGameResponse(game.getCurrQuestion(), game.rounds, game.getPhase());
     }
 
 }
