@@ -11,11 +11,11 @@ import java.util.List;
 @RequestMapping("/game")
 public class GameController {
 
-    //add more request and response formats later
+    public record JoinResponseBody(String token){}
     public record QuestionRequestBody(String guesserToken, String question){}
     public record AnswerRequestBody(String impostorToken, String answer){}
     public record EliminateRequestBody(String guesserToken, int eliminatedId){}
-    public record GetGameResponse(String currQuestion, List<Round> rounds, GameState.Phase gamePhase){}
+    public record GetGameResponse(String currQuestion, List<Round> rounds, GameState.Phase gamePhase, String whoWon){}
 
     private final GameEngine engine;
 
@@ -33,17 +33,17 @@ public class GameController {
     }
 
     @PostMapping("/{gameId}/join/impostor")
-    public String joinAsImpostor(@PathVariable String gameId){
+    public JoinResponseBody joinAsImpostor(@PathVariable String gameId){
 
         GameState game = engine.getGame(gameId);
-        return engine.assignImpostor(game);
+        return new JoinResponseBody(engine.assignImpostor(game));
     }
 
     @PostMapping("/{gameId}/join/guesser")
-    public String joinAsGuesser(@PathVariable String gameId){
+    public JoinResponseBody joinAsGuesser(@PathVariable String gameId){
 
         GameState game = engine.getGame(gameId);
-        return engine.assignGuesser(game);
+        return new JoinResponseBody(engine.assignGuesser(game));
     }
 
     @PostMapping("/{gameId}/start")
@@ -86,7 +86,7 @@ public class GameController {
 
         GameState game = engine.getGame(gameId);
 
-        return new GetGameResponse(game.getCurrQuestion(), game.getRounds(), game.getPhase());
+        return new GetGameResponse(game.getCurrQuestion(), game.getRounds(), game.getPhase(), game.whoWon());
     }
 
 }

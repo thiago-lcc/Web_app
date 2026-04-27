@@ -247,15 +247,5 @@ public class GameEngine {
             }
         }
     }
-
-    //Use only after game is confirmed to be over
-    public boolean impostorsWon(GameState game){
-
-        // win conditions
-        if(game.numCurrImpostors() == 0) return false;
-        else if (game.numCurrAis() <= 4 - game.totalImpostors()) return true;
-        else throw new RuntimeException("Game was not over yet");
-
-    }
 }
 

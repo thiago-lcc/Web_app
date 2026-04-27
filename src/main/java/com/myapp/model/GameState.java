@@ -138,6 +138,16 @@ public class GameState {
         return (numCurrImpostors() == 0 || numCurrAis() <= 4 - totalImpostors());
     }
 
+    public String whoWon(){
+
+        // win conditions
+        if(numCurrImpostors() == 0) return "guesser";
+        if (numCurrAis() <= 4 - totalImpostors()) return "impostors";
+
+        return null;
+
+    }
+
     public boolean canStart(){
 
         return (totalImpostors() == idsByToken.size() && getGuesserToken() != null);
