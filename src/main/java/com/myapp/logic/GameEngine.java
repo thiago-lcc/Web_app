@@ -144,9 +144,9 @@ public class GameEngine {
                         "Cannot accept answers from agents that were eliminated");
 
             Message message = new Message(id, answer);
-            game.partialMessages.add(message);
+            game.addImpostorMessage(message);
 
-            if(game.partialMessages.size() == game.numCurrImpostors())
+            if(game.numImpostorMessages() == game.numCurrImpostors())
                 game.setPhase(GameState.Phase.WAITING_FOR_ROUND);
         }
         catch (IllegalArgumentException e){
@@ -179,15 +179,15 @@ public class GameEngine {
         try {
 
             List<Message> messages = aiService.getMessages(game.getCurrQuestion(), ais);
-            messages.addAll(game.partialMessages);
+            messages.addAll(game.getImpostorMessages());
 
             messages.sort((a, b) -> a.agentId() - b.agentId());
 
             Round round = new Round(game.getCurrQuestion(), messages, game.roundNum() + 1);
-            game.rounds.add(round);
+            game.addRound(round);
             game.setPhase(GameState.Phase.WAITING_FOR_ELIMINATION);
 
-            game.partialMessages.clear();
+            game.clearImpostorMessages();
             game.discardCurrQuestion();
 
             return round;

@@ -86,7 +86,7 @@ public class GameController {
 
         GameState game = engine.getGame(gameId);
 
-        return new GetGameResponse(game.getCurrQuestion(), game.rounds, game.getPhase());
+        return new GetGameResponse(game.getCurrQuestion(), game.getRounds(), game.getPhase());
     }
 
 }

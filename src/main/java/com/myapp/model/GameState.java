@@ -17,16 +17,13 @@ public class GameState {
         OVER
     }
 
-    //later make the public fields private
-
     private final List<Agent> agents;
-    public List<Round> rounds = new ArrayList<>();
-    public List<Message> partialMessages = new ArrayList<>();
+    private final List<Round> rounds = new ArrayList<>();
+    private final List<Message> pendingImpostorMessages = new ArrayList<>();
     private final Map<String, Integer> idsByToken = new HashMap<>();
 
     private String currQuestion;
     private String guesserToken;
-    private boolean gameOver = false;
     private final int totalImpostors;
     private Phase phase = Phase.WAITING_FOR_START;
 
@@ -80,10 +77,12 @@ public class GameState {
     }
 
     public String getGuesserToken() {
+
         return guesserToken;
     }
 
     public void setGuesserToken(String guesserToken) {
+
         this.guesserToken = guesserToken;
     }
 
@@ -120,27 +119,57 @@ public class GameState {
     }
 
     public String getCurrQuestion() {
+
         return currQuestion;
     }
 
     public void setCurrQuestion(String currQuestion) {
+
         this.currQuestion = currQuestion;
     }
 
     public void discardCurrQuestion(){
+
         this.currQuestion = null;
     }
 
     public boolean isOver() {
 
-        if (gameOver) return true;
-
-        this.gameOver = (numCurrImpostors() == 0 || numCurrAis() <= 4 - totalImpostors());
-        return gameOver;
+        return (numCurrImpostors() == 0 || numCurrAis() <= 4 - totalImpostors());
     }
 
     public boolean canStart(){
 
         return (totalImpostors() == idsByToken.size() && getGuesserToken() != null);
+    }
+
+    public List<Round> getRounds() {
+
+        return rounds;
+    }
+
+    public void addRound(Round round) {
+
+        this.rounds.add(round);
+    }
+
+    public List<Message> getImpostorMessages() {
+
+        return pendingImpostorMessages;
+    }
+
+    public void addImpostorMessage(Message impostorMessage){
+
+        pendingImpostorMessages.add(impostorMessage);
+    }
+
+    public int numImpostorMessages(){
+
+        return pendingImpostorMessages.size();
+    }
+
+    public void clearImpostorMessages(){
+
+        pendingImpostorMessages.clear();
     }
 }
