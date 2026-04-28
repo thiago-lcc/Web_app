@@ -5,9 +5,12 @@ import com.myapp.model.GameState;
 import com.myapp.model.Message;
 import com.myapp.model.Round;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -47,6 +50,16 @@ public class GameEngine {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Game not found");
 
         return game;
+    }
+
+    //runs every minute
+    @Scheduled(fixedRate = 60000)
+    public void deleteFinishedGames(){
+
+        //removes game if it's over for more than 10 minutes
+        games.entrySet().removeIf(entry ->
+                entry.getValue().getPhase() == GameState.Phase.OVER &&
+                entry.getValue().finishedAt().isBefore(Instant.now().minus(Duration.ofMinutes(10))));
     }
 
     private List<Integer> createImpostorIds(int numImpostors) {

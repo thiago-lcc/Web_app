@@ -1,5 +1,6 @@
 package com.myapp.model;
 
+import java.time.Instant;
 import java.util.*;
 
 public class GameState {
@@ -23,6 +24,7 @@ public class GameState {
     private String guesserToken;
     private final int totalImpostors;
     private Phase phase = Phase.WAITING_FOR_START;
+    private Instant finishedAt;
 
 
     public GameState(List<Agent> agents) {
@@ -144,7 +146,17 @@ public class GameState {
 
     public boolean isOver() {
 
-        return (numCurrImpostors() == 0 || numCurrAis() <= 4 - totalImpostors());
+        if(numCurrImpostors() == 0 || numCurrAis() <= 4 - totalImpostors()){
+
+            this.finishedAt = Instant.now();
+            return true;
+        }
+        return false;
+    }
+
+    public Instant finishedAt(){
+
+        return finishedAt;
     }
 
     public String whoWon(){
