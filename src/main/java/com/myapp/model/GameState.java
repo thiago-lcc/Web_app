@@ -192,7 +192,7 @@ public class GameState {
         return pendingMessages.size();
     }
 
-    public void clearImpostorMessages(){
+    public void clearPendingMessages(){
 
         pendingMessages.clear();
     }

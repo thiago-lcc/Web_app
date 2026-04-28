@@ -8,7 +8,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -180,7 +179,15 @@ public class GameEngine {
                 game.setPhase(GameState.Phase.WAITING_FOR_ROUND);
 
         }
-        catch (IOException e){
+        catch (Exception e){
+
+            synchronized (game){
+
+                game.setPhase(GameState.Phase.WAITING_FOR_QUESTION);
+                game.clearPendingMessages();
+                game.discardCurrQuestion();
+            }
+
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                     "Failed to get AI answers", e);
         }
@@ -222,7 +229,7 @@ public class GameEngine {
             game.addRound(round);
             game.setPhase(GameState.Phase.WAITING_FOR_ELIMINATION);
 
-            game.clearImpostorMessages();
+            game.clearPendingMessages();
             game.discardCurrQuestion();
 
             return round;
