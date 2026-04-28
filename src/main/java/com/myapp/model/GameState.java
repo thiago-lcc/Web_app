@@ -1,9 +1,6 @@
 package com.myapp.model;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class GameState {
 
@@ -19,7 +16,7 @@ public class GameState {
 
     private final List<Agent> agents;
     private final List<Round> rounds = new ArrayList<>();
-    private final List<Message> pendingImpostorMessages = new ArrayList<>();
+    private final List<Message> pendingMessages = Collections.synchronizedList(new ArrayList<>());
     private final Map<String, Integer> idsByToken = new HashMap<>();
 
     private String currQuestion;
@@ -54,6 +51,13 @@ public class GameState {
                 .toList();
     }
 
+    public List<Agent> currAgents(){
+
+        return agents.stream()
+                .filter(Agent::isALive)
+                .toList();
+    }
+
     public int numCurrImpostors() {
 
         return currImpostors().size();
@@ -62,6 +66,11 @@ public class GameState {
     public int numCurrAis() {
 
         return currAis().size();
+    }
+
+    public int numCurrAgents(){
+
+        return currAgents().size();
     }
 
     public int totalImpostors() {
@@ -163,23 +172,35 @@ public class GameState {
         this.rounds.add(round);
     }
 
-    public List<Message> getImpostorMessages() {
+    public List<Message> getPendingMessages() {
 
-        return pendingImpostorMessages;
+        return pendingMessages;
     }
 
     public void addImpostorMessage(Message impostorMessage){
 
-        pendingImpostorMessages.add(impostorMessage);
+        pendingMessages.add(impostorMessage);
     }
 
-    public int numImpostorMessages(){
+    public void addAiMessages(List<Message> aiMessages){
 
-        return pendingImpostorMessages.size();
+        pendingMessages.addAll(aiMessages);
+    }
+
+    public int numPendingMessages(){
+
+        return pendingMessages.size();
     }
 
     public void clearImpostorMessages(){
 
-        pendingImpostorMessages.clear();
+        pendingMessages.clear();
+    }
+
+    public boolean alreadyAnswered(int id){
+
+        return getPendingMessages()
+                .stream()
+                .anyMatch(m -> m.agentId() == id);
     }
 }

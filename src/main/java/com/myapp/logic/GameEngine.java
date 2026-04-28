@@ -149,18 +149,40 @@ public class GameEngine {
 
             try {
                 int id = game.getIdByToken(token);
+
                 if (!game.getAgent(id).isALive())
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                             "Cannot accept answers from agents that were eliminated");
 
+                if (game.alreadyAnswered(id))
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Impostor already answered this round");
+
                 Message message = new Message(id, answer);
                 game.addImpostorMessage(message);
 
-                if (game.numImpostorMessages() == game.numCurrImpostors())
+                if (game.numPendingMessages() == game.numCurrAgents())
                     game.setPhase(GameState.Phase.WAITING_FOR_ROUND);
+
             } catch (IllegalArgumentException e) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
             }
+        }
+    }
+
+    public void addAiMessages(GameState game){
+
+        try{
+            List<Message> aiMessages = aiService.getMessages(game.getCurrQuestion(), game.currAis());
+            game.addAiMessages(aiMessages);
+
+            if (game.numPendingMessages() == game.numCurrAgents())
+                game.setPhase(GameState.Phase.WAITING_FOR_ROUND);
+
+        }
+        catch (IOException e){
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to get AI answers", e);
         }
     }
 
@@ -179,6 +201,8 @@ public class GameEngine {
 
             game.setPhase(GameState.Phase.WAITING_FOR_ANSWERS);
         }
+
+        addAiMessages(game);
     }
 
     public Round playRound(GameState game) {
@@ -189,33 +213,22 @@ public class GameEngine {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Cannot play round in current phase");
 
-            List<Agent> ais = game.currAis();
 
-            try {
+            List<Message> messages = new ArrayList<>(game.getPendingMessages());
 
-                List<Message> messages = aiService.getMessages(game.getCurrQuestion(), ais);
-                messages.addAll(game.getImpostorMessages());
+            messages.sort(Comparator.comparingInt(Message::agentId));
 
-                messages.sort((a, b) -> a.agentId() - b.agentId());
+            Round round = new Round(game.getCurrQuestion(), messages, game.roundNum() + 1);
+            game.addRound(round);
+            game.setPhase(GameState.Phase.WAITING_FOR_ELIMINATION);
 
-                Round round = new Round(game.getCurrQuestion(), messages, game.roundNum() + 1);
-                game.addRound(round);
-                game.setPhase(GameState.Phase.WAITING_FOR_ELIMINATION);
+            game.clearImpostorMessages();
+            game.discardCurrQuestion();
 
-                game.clearImpostorMessages();
-                game.discardCurrQuestion();
+            return round;
 
-                return round;
-            } catch (IOException e) {
-
-                throw new ResponseStatusException(
-                        HttpStatus.INTERNAL_SERVER_ERROR,
-                        "Failed to get AI answers",
-                        e
-                );
             }
         }
-    }
 
     public void eliminateAgent(GameState game, int id, String token) {
 
