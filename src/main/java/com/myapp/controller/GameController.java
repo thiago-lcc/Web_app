@@ -3,6 +3,11 @@ package com.myapp.controller;
 import com.myapp.logic.GameEngine;
 import com.myapp.model.GameState;
 import com.myapp.model.Round;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -11,10 +16,13 @@ import java.util.List;
 @RequestMapping("/game")
 public class GameController {
 
+    public record CreateGameRequest(@Min(1) @Max(4) int numImpostors){}
+    public record QuestionRequestBody(@NotBlank String guesserToken, @NotBlank @Size(max = 100) String question){}
+    public record AnswerRequestBody(@NotBlank String impostorToken, @NotBlank @Size(max = 100) String answer){}
+    public record EliminateRequestBody(@NotBlank String guesserToken, @Min(1) @Max(8) int eliminatedId){}
+
+    public record CreateGameResponse(@NotBlank String gameId){}
     public record JoinResponseBody(String token){}
-    public record QuestionRequestBody(String guesserToken, String question){}
-    public record AnswerRequestBody(String impostorToken, String answer){}
-    public record EliminateRequestBody(String guesserToken, int eliminatedId){}
     public record GetGameResponse(String currQuestion, List<Round> rounds, GameState.Phase gamePhase, String whoWon){}
 
     private final GameEngine engine;
@@ -26,9 +34,9 @@ public class GameController {
 
 
     @PostMapping
-    public String createGame(@RequestBody int numImpostors){
+    public CreateGameResponse createGame(@RequestBody @Valid CreateGameRequest req){
 
-        return engine.createGame(numImpostors);
+        return new CreateGameResponse(engine.createGame(req.numImpostors()));
 
     }
 
@@ -54,14 +62,14 @@ public class GameController {
     }
 
     @PostMapping("/{gameId}/question")
-    public void askQuestion(@PathVariable String gameId, @RequestBody QuestionRequestBody req){
+    public void askQuestion(@PathVariable String gameId, @RequestBody @Valid QuestionRequestBody req){
 
         GameState game = engine.getGame(gameId);
         engine.addNewQuestion(game, req.question(), req.guesserToken());
     }
 
     @PostMapping("/{gameId}/answer")
-    public void answerQuestion(@PathVariable String gameId, @RequestBody AnswerRequestBody req){
+    public void answerQuestion(@PathVariable String gameId, @RequestBody @Valid AnswerRequestBody req){
 
         GameState game = engine.getGame(gameId);
         engine.addImpostorMessage(game, req.answer(), req.impostorToken());
@@ -75,7 +83,7 @@ public class GameController {
     }
 
     @PostMapping("/{gameId}/eliminate")
-    public void eliminateAgent(@PathVariable String gameId, @RequestBody EliminateRequestBody req){
+    public void eliminateAgent(@PathVariable String gameId, @RequestBody @Valid EliminateRequestBody req){
 
         GameState game = engine.getGame(gameId);
         engine.eliminateAgent(game, req.eliminatedId(), req.guesserToken());
