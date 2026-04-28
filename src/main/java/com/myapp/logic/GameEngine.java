@@ -1,5 +1,6 @@
 package com.myapp.logic;
 
+import com.myapp.logic.ai.AiService;
 import com.myapp.model.Agent;
 import com.myapp.model.GameState;
 import com.myapp.model.Message;

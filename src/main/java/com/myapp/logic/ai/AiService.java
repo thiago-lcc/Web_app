@@ -1,23 +1,15 @@
-package com.myapp.logic;
+package com.myapp.logic.ai;
+
 import com.myapp.model.Agent;
 import com.myapp.model.Message;
 
-import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import io.github.cdimascio.dotenv.Dotenv;
-import okhttp3.*;
-import org.json.JSONObject;
-import org.springframework.stereotype.Service;
 
-@Service
-public class AiService {
+public interface AiService {
 
-    private final static String apiKey = Dotenv.load().get("OPENAI_API_KEY");
-    private final static OkHttpClient client = new OkHttpClient();
-
-
-    private String createPrompt(String question, int numAiAgents){
+    default String createPrompt(String question, int numAiAgents){
 
         return  "You are part of a game where AIs pretend to be human while answering questions while among actual humans.\n" +
                 "Your NUMBER 1 GOAL is to blend in and not let anyone know you're an AI. A Turing test of sorts." +
@@ -35,46 +27,11 @@ public class AiService {
                 "Question: " + question;
     }
 
-    private List<String> generateAnswers(String question, int numAiAgents) throws IOException {
-
-        String jsonBody = new JSONObject()
-                .put("model", "gpt-4.1-mini")
-                .put("input", createPrompt(question, numAiAgents))
-                .toString();
-
-        Request request = new Request.Builder()
-                .url("https://api.openai.com/v1/responses")
-                .addHeader("Authorization", "Bearer " + apiKey)
-                .addHeader("Content-Type", "application/json")
-                .post(RequestBody.create(jsonBody, MediaType.get("application/json")))
-                .build();
-
-        try (Response response = client.newCall(request).execute()){
-
-        if(!response.isSuccessful()) throw new RuntimeException("API call failed: " + response.code());
-        if(response.body() == null) throw new NullPointerException("Empty response body");
-
-
-        String responseBody = response.body().string();
-
-        JSONObject json = new JSONObject(responseBody);
-
-        String answersString = json
-                .getJSONArray("output")
-                .getJSONObject(0)
-                .getJSONArray("content")
-                .getJSONObject(0)
-                .getString("text");
-
-        return answersString.lines()
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .toList();
-        }
+    default List<String> generateAnswers(String question, int numAiAgents) throws Exception {
+        return Collections.emptyList();
     }
 
-
-    public List<Message> getMessages(String question, List<Agent> agents) throws IOException{
+    default List<Message> getMessages(String question, List<Agent> agents) throws Exception{
 
         List<Message> messages = new ArrayList<>();
 
