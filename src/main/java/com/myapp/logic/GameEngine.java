@@ -272,7 +272,7 @@ public class GameEngine {
                 agent.eliminate();
 
                 if (!game.isOver())
-                    game.setPhase(GameState.Phase.WAITING_FOR_ROUND);
+                    game.setPhase(GameState.Phase.WAITING_FOR_QUESTION);
                 else
                     game.setPhase(GameState.Phase.OVER);
 
