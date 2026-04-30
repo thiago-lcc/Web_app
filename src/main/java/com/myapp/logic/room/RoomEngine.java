@@ -46,15 +46,18 @@ public class RoomEngine {
 
     public void joinRoom(RoomState room, String playerToken, String nickname){
 
-        if(room.isFull())
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Room is full");
+        synchronized (room){
 
-        if(room.nicknameTaken(nickname))
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Nickname is already taken in this room");
+            if(room.isFull())
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Room is full");
 
-        room.addNewPlayer(playerToken, new Player(nickname, false, false));
+            if(room.nicknameTaken(nickname))
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Nickname is already taken in this room");
+
+            room.addNewPlayer(playerToken, new Player(nickname, false, false));
+        }
     }
 
     public void throwIfPlayerIsNull(Player player){
@@ -66,61 +69,75 @@ public class RoomEngine {
 
     public void throwIfNotOwner(RoomState room, String ownerToken){
 
-        Player owner = room.getPlayerByToken(ownerToken);
+        synchronized (room){
 
-        if(owner == null || !owner.isRoomOwner())
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Owner token does not match");
+            Player owner = room.getPlayerByToken(ownerToken);
+
+            if(owner == null || !owner.isRoomOwner())
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Owner token does not match");
+        }
     }
 
     public void makeRandomGuesser(RoomState room){
 
-        Player player = room.getPlayers()
-                .get(new Random().nextInt(room.numPlayers()));
+        synchronized (room){
 
-        room.setGuesser(player);
+            Player player = room.getPlayers()
+                    .get(new Random().nextInt(room.numPlayers()));
+
+            room.setGuesser(player);
+        }
     }
 
     public void makeRandomOwner(RoomState room){
 
-        Player player = room.getPlayers()
-                .get(new Random().nextInt(room.numPlayers()));
+        synchronized (room){
 
-        room.setOwner(player);
+            Player player = room.getPlayers()
+                    .get(new Random().nextInt(room.numPlayers()));
+
+            room.setOwner(player);
+        }
     }
 
     public void leaveRoom(RoomState room,String playerToken){
 
-        Player player = room.getPlayerByToken(playerToken);
-        throwIfPlayerIsNull(player);
+        synchronized (room) {
 
-        room.removePlayer(player);
-        if(room.isEmpty()){
+            Player player = room.getPlayerByToken(playerToken);
+            throwIfPlayerIsNull(player);
 
-            removeRoom(room);
-            return;
+            room.removePlayer(player);
+            if (room.isEmpty()) {
+
+                removeRoom(room);
+                return;
+            }
+
+            if (player.isGuesser())
+                makeRandomGuesser(room);
+            if (player.isRoomOwner())
+                makeRandomOwner(room);
         }
-
-        if(player.isGuesser())
-            makeRandomGuesser(room);
-        if(player.isRoomOwner())
-            makeRandomOwner(room);
     }
 
     public void removeFromRoom(RoomState room, String ownerToken, String nickname){
 
-        throwIfNotOwner(room, ownerToken);
+        synchronized (room){
+            throwIfNotOwner(room, ownerToken);
 
-        Player player = room.getPlayerByNickname(nickname);
-        throwIfPlayerIsNull(player);
+            Player player = room.getPlayerByNickname(nickname);
+            throwIfPlayerIsNull(player);
 
-        if(room.getPlayerByToken(ownerToken) == player)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Owner cannot remove themselves");
+            if(room.getPlayerByToken(ownerToken) == player)
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Owner cannot remove themselves");
 
-        room.removePlayer(player);
+            room.removePlayer(player);
 
-        if(player.isGuesser())
-            makeRandomGuesser(room);
+            if(player.isGuesser())
+                makeRandomGuesser(room);
+        }
     }
 }
