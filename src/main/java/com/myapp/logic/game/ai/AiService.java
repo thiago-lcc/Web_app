@@ -1,7 +1,7 @@
-package com.myapp.logic.ai;
+package com.myapp.logic.game.ai;
 
-import com.myapp.model.Agent;
-import com.myapp.model.Message;
+import com.myapp.model.game.Agent;
+import com.myapp.model.game.Message;
 
 import java.util.ArrayList;
 import java.util.Collections;

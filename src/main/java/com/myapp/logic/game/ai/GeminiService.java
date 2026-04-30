@@ -1,4 +1,4 @@
-package com.myapp.logic.ai;
+package com.myapp.logic.game.ai;
 
 import org.springframework.stereotype.Service;
 

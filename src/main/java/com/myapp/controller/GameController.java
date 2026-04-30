@@ -1,8 +1,8 @@
 package com.myapp.controller;
 
-import com.myapp.logic.GameEngine;
-import com.myapp.model.GameState;
-import com.myapp.model.Round;
+import com.myapp.logic.game.GameEngine;
+import com.myapp.model.game.GameState;
+import com.myapp.model.game.Round;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;

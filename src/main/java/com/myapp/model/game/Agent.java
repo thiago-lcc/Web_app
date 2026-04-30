@@ -1,4 +1,4 @@
-package com.myapp.model;
+package com.myapp.model.game;
 
 
 public class Agent{

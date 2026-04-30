@@ -1,4 +1,4 @@
-package com.myapp.logic.ai;
+package com.myapp.logic.game.ai;
 
 import java.io.IOException;
 import java.util.List;

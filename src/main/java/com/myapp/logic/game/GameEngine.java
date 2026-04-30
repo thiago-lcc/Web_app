@@ -1,10 +1,10 @@
-package com.myapp.logic;
+package com.myapp.logic.game;
 
-import com.myapp.logic.ai.AiService;
-import com.myapp.model.Agent;
-import com.myapp.model.GameState;
-import com.myapp.model.Message;
-import com.myapp.model.Round;
+import com.myapp.logic.game.ai.AiService;
+import com.myapp.model.game.Agent;
+import com.myapp.model.game.GameState;
+import com.myapp.model.game.Message;
+import com.myapp.model.game.Round;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;

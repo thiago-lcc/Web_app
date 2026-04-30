@@ -1,4 +1,4 @@
-package com.myapp.model;
+package com.myapp.model.game;
 
 import java.time.Instant;
 import java.util.*;
