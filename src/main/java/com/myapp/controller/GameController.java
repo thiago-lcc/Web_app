@@ -16,13 +16,10 @@ import java.util.List;
 @RequestMapping("/game")
 public class GameController {
 
-    public record CreateGameRequest(@Min(1) @Max(4) int numImpostors){}
     public record QuestionRequestBody(@NotBlank String guesserToken, @NotBlank @Size(max = 100) String question){}
     public record AnswerRequestBody(@NotBlank String impostorToken, @NotBlank @Size(max = 100) String answer){}
     public record EliminateRequestBody(@NotBlank String guesserToken, @Min(1) @Max(8) int eliminatedId){}
 
-    public record CreateGameResponse(@NotBlank String gameId){}
-    public record JoinResponseBody(String token){}
     public record GetGameResponse(String currQuestion, List<Round> rounds, GameState.Phase gamePhase, String whoWon){}
 
     private final GameEngine engine;
@@ -32,27 +29,6 @@ public class GameController {
         this.engine = gameEngine;
     }
 
-
-    @PostMapping
-    public CreateGameResponse createGame(@RequestBody @Valid CreateGameRequest req){
-
-        return new CreateGameResponse(engine.createGame(req.numImpostors()));
-
-    }
-
-    @PostMapping("/{gameId}/join/impostor")
-    public JoinResponseBody joinAsImpostor(@PathVariable String gameId){
-
-        GameState game = engine.getGame(gameId);
-        return new JoinResponseBody(engine.assignImpostor(game));
-    }
-
-    @PostMapping("/{gameId}/join/guesser")
-    public JoinResponseBody joinAsGuesser(@PathVariable String gameId){
-
-        GameState game = engine.getGame(gameId);
-        return new JoinResponseBody(engine.assignGuesser(game));
-    }
 
     @PostMapping("/{gameId}/start")
     public void startGame(@PathVariable String gameId){

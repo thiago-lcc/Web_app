@@ -30,18 +30,11 @@ public class GameEngine {
 
 
 
-    public String createGame(int numImpostors) {
+    public void createGame(int numImpostors, String gameId) {
 
         List<Agent> agents = createAgents(numImpostors);
 
-        String gameId = UUID.randomUUID()
-                .toString()
-                .replace("-", "");
-
         games.put(gameId, new GameState(agents));
-
-        return gameId;
-
     }
 
     public GameState getGame(String gameId) {
@@ -74,7 +67,7 @@ public class GameEngine {
                 .toList();
     }
 
-    public String assignImpostor(GameState game){
+    public void assignImpostor(GameState game, String impostorToken){
 
         synchronized (game){
 
@@ -91,17 +84,12 @@ public class GameEngine {
             int impostorId = availableIds.get(
                  new Random().nextInt(availableIds.size()));
 
-            String impostorToken = UUID.randomUUID()
-                    .toString()
-                    .replace("-", "");
-
             game.setImpostorToken(impostorToken, impostorId);
-            return impostorToken;
         }
 
     }
 
-    public String assignGuesser(GameState game) {
+    public void assignGuesser(GameState game, String guesserToken) {
 
         synchronized (game){
 
@@ -113,12 +101,7 @@ public class GameEngine {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Guesser role was already assigned");
 
-            String guesserToken = UUID.randomUUID()
-                    .toString()
-                    .replace("-", "");
-
             game.setGuesserToken(guesserToken);
-            return guesserToken;
         }
     }
 

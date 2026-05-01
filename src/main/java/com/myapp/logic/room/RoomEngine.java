@@ -1,5 +1,7 @@
 package com.myapp.logic.room;
 
+import com.myapp.logic.game.GameEngine;
+import com.myapp.model.game.GameState;
 import com.myapp.model.room.Player;
 import com.myapp.model.room.RoomState;
 import org.springframework.http.HttpStatus;
@@ -15,6 +17,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RoomEngine {
 
     private final Map<String, RoomState> rooms = new ConcurrentHashMap<>();
+
+    private final GameEngine gameEngine;
+
+    public RoomEngine(GameEngine gameEngine) {
+
+        this.gameEngine = gameEngine;
+    }
 
 
     public String createRoom(String nickname, String ownerToken){
@@ -138,6 +147,36 @@ public class RoomEngine {
 
             if(player.isGuesser())
                 makeRandomGuesser(room);
+        }
+    }
+
+    public void startGame(String roomId, String ownerToken){
+
+        RoomState room = rooms.get(roomId);
+
+        synchronized (room){
+
+            throwIfNotOwner(room, ownerToken);
+
+            if(room.numPlayers() == 1)
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Room needs minimum of 2 players to start game");
+
+            gameEngine.createGame(room.numPlayers() - 1, roomId);
+            GameState game = gameEngine.getGame(roomId);
+
+            for(String playerToken: room.getTokens()){
+
+                Player player = room.getPlayerByToken(playerToken);
+
+                if(player.isGuesser())
+                    gameEngine.assignGuesser(game, playerToken);
+                else
+                    gameEngine.assignImpostor(game, playerToken);
+
+            }
+
+            removeRoom(room);
         }
     }
 }

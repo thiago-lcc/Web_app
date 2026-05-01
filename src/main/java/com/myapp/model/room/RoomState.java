@@ -29,6 +29,12 @@ public class RoomState {
                 .stream().toList();
     }
 
+    public List<String> getTokens(){
+
+        return playerByToken.keySet()
+                .stream().toList();
+    }
+
     public int numPlayers(){
 
         return getPlayers().size();
@@ -37,11 +43,6 @@ public class RoomState {
     public void removePlayer(Player player){
 
         playerByToken.values().remove(player);
-    }
-
-    public void empty(){
-
-        playerByToken.clear();
     }
 
     public boolean isEmpty(){
