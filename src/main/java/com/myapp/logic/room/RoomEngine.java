@@ -110,7 +110,7 @@ public class RoomEngine {
         }
     }
 
-    public void leaveRoom(RoomState room,String playerToken){
+    public String leaveRoom(RoomState room,String playerToken){
 
         synchronized (room) {
 
@@ -118,16 +118,17 @@ public class RoomEngine {
             throwIfPlayerIsNull(player);
 
             room.removePlayer(player);
-            if (room.isEmpty()) {
 
+            if (room.isEmpty())
                 removeRoom(room);
-                return;
+            else{
+                if (player.isGuesser())
+                    makeRandomGuesser(room);
+                if (player.isRoomOwner())
+                    makeRandomOwner(room);
             }
 
-            if (player.isGuesser())
-                makeRandomGuesser(room);
-            if (player.isRoomOwner())
-                makeRandomOwner(room);
+            return player.getNickname();
         }
     }
 
