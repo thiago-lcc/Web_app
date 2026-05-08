@@ -3,6 +3,9 @@ package com.myapp.controller;
 import com.myapp.logic.room.RoomEngine;
 import com.myapp.model.room.Player;
 import com.myapp.model.room.RoomState;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
@@ -18,12 +21,12 @@ import java.util.List;
 @Controller
 public class RoomController {
 
-    public record JoinRequestMessage(String joinedNickname){}
+    public record JoinRequestMessage(@NotBlank @Size(max = 25) String joinedNickname){}
     public record JoinEventMessage(String joinedNickname){}
-    public record CreateRequestMessage(String creatorNickname){}
+    public record CreateRequestMessage(@NotBlank @Size(max = 25) String creatorNickname){}
     public record CreateResponseMessage(String roomId){}
     public record LeaveEventMessage(String leftNickname){}
-    public record RemoveRequestMessage(String removedNickname){}
+    public record RemoveRequestMessage(@NotBlank @Size(max = 25) String removedNickname){}
     public record RemoveEventMessage(String removedNickname){}
     public record StartEventMessage(boolean gameStarted){}
 
@@ -39,7 +42,7 @@ public class RoomController {
     }
 
     @MessageMapping("/room/create")
-    public void createRoom(CreateRequestMessage msg, SimpMessageHeaderAccessor accessor){
+    public void createRoom(@Valid CreateRequestMessage msg, SimpMessageHeaderAccessor accessor){
 
         String sessionId = accessor.getSessionId();
         String roomId = roomEngine.createRoom(msg.creatorNickname(), sessionId);
@@ -58,7 +61,7 @@ public class RoomController {
 
     @MessageMapping("/room/{roomId}/join")
     @SendTo("/topic/room/{roomId}")
-    public JoinEventMessage joinRoom(@DestinationVariable String roomId, JoinRequestMessage msg,
+    public JoinEventMessage joinRoom(@DestinationVariable String roomId, @Valid JoinRequestMessage msg,
                                      SimpMessageHeaderAccessor accessor){
 
         RoomState room = roomEngine.getRoom(roomId);
@@ -83,7 +86,7 @@ public class RoomController {
     @MessageMapping("/room/{roomId}/remove")
     @SendTo("/topic/room/{roomId}")
     public RemoveEventMessage removeFromRoom(@DestinationVariable String roomId, SimpMessageHeaderAccessor accessor,
-                                             RemoveRequestMessage msg){
+                                             @Valid RemoveRequestMessage msg){
 
         RoomState room = roomEngine.getRoom(roomId);
 
