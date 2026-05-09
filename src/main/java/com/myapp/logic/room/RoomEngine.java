@@ -4,11 +4,10 @@ import com.myapp.logic.game.GameEngine;
 import com.myapp.model.game.GameState;
 import com.myapp.model.room.Player;
 import com.myapp.model.room.RoomState;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,8 +41,7 @@ public class RoomEngine {
 
         RoomState room = rooms.get(roomId);
         if(room == null)
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
-                    "Room not found");
+            throw new NoSuchElementException("Room not found");
 
         return room;
     }
@@ -58,12 +56,13 @@ public class RoomEngine {
         synchronized (room){
 
             if(room.isFull())
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Room is full");
+                throw new IllegalStateException("Room is full");
 
             if(room.nicknameTaken(nickname))
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Nickname is already taken in this room");
+                throw new IllegalArgumentException("Nickname is already taken");
+
+            if(room.getPlayerByToken(playerToken) != null)
+                throw new IllegalStateException("User is already this game");
 
             room.addNewPlayer(playerToken, new Player(nickname, false, false));
         }
@@ -72,8 +71,7 @@ public class RoomEngine {
     public void throwIfPlayerIsNull(Player player){
 
         if(player == null)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Player does not exist");
+            throw new NoSuchElementException("Player does not exist");
     }
 
     public void throwIfNotOwner(RoomState room, String ownerToken){
@@ -83,8 +81,7 @@ public class RoomEngine {
             Player owner = room.getPlayerByToken(ownerToken);
 
             if(owner == null || !owner.isRoomOwner())
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Owner token does not match");
+                throw new IllegalArgumentException("Owner token does not match");
         }
     }
 
@@ -141,8 +138,7 @@ public class RoomEngine {
             throwIfPlayerIsNull(player);
 
             if(room.getPlayerByToken(ownerToken) == player)
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Owner cannot remove themselves");
+                throw new IllegalStateException("Owner cannot be removed");
 
             room.removePlayer(player);
 
@@ -160,8 +156,7 @@ public class RoomEngine {
             throwIfNotOwner(room, ownerToken);
 
             if(room.numPlayers() == 1)
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Room needs minimum of 2 players to start game");
+                throw new IllegalStateException("Room needs at least 2 players to start game");
 
             gameEngine.createGame(room.numPlayers() - 1, roomId);
             GameState game = gameEngine.getGame(roomId);

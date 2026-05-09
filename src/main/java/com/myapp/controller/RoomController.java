@@ -6,6 +6,7 @@ import com.myapp.model.room.RoomState;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import org.springframework.http.HttpStatus;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
@@ -15,8 +16,10 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 
 @Controller
 public class RoomController {
@@ -109,8 +112,15 @@ public class RoomController {
     @GetMapping("/room/{roomId}")
     public GetRoomResponse getRoom(@PathVariable String roomId){
 
-        RoomState room = roomEngine.getRoom(roomId);
+        try{
 
-        return new GetRoomResponse(room.getPlayers());
+            RoomState room = roomEngine.getRoom(roomId);
+            return new GetRoomResponse(room.getPlayers());
+        }
+        catch (NoSuchElementException e){
+
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+            e.getMessage());
+        }
     }
 }
