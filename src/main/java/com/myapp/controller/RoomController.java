@@ -16,9 +16,11 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 @Controller
@@ -50,6 +52,13 @@ public class RoomController {
         String sessionId = accessor.getSessionId();
         String roomId = roomEngine.createRoom(msg.creatorNickname(), sessionId);
 
+        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+        if(sessionAttributes == null)
+            throw new IllegalStateException("Invalid WebSocket connection or with no attributes");
+
+        sessionAttributes.put("roomId", roomId);
+        sessionAttributes.put("nickname", msg.creatorNickname());
+
         // temporary: replace once guest logic is created
         SimpMessageHeaderAccessor headerAccessor = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE);
         headerAccessor.setSessionId(sessionId);
@@ -70,6 +79,13 @@ public class RoomController {
         RoomState room = roomEngine.getRoom(roomId);
         String nickname = msg.joinedNickname();
 
+        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+        if(sessionAttributes == null)
+            throw new IllegalStateException("Invalid WebSocket connection or with no attributes");
+
+        sessionAttributes.put("roomId", roomId);
+        sessionAttributes.put("nickname", nickname);
+
         roomEngine.joinRoom(room, accessor.getSessionId(),nickname);
 
         return new JoinEventMessage(nickname);
@@ -82,6 +98,13 @@ public class RoomController {
         RoomState room = roomEngine.getRoom(roomId);
 
         String nickname = roomEngine.leaveRoom(room, accessor.getSessionId());
+
+        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+        if(sessionAttributes == null)
+            throw new IllegalStateException("Invalid WebSocket connection or with no attributes");
+
+        sessionAttributes.remove("roomId");
+        sessionAttributes.remove("nickname");
 
         return new LeaveEventMessage(nickname);
     }
@@ -110,6 +133,7 @@ public class RoomController {
     }
 
     @GetMapping("/room/{roomId}")
+    @ResponseBody
     public GetRoomResponse getRoom(@PathVariable String roomId){
 
         try{
