@@ -1,7 +1,6 @@
 package com.myapp.controller.event;
 
 import com.myapp.logic.room.RoomEngine;
-import com.myapp.model.room.RoomState;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
@@ -44,13 +43,9 @@ public class WebSocketEventListener {
         String roomId = roomIdObj.toString();
         String nickname = nicknameObj.toString();
 
-        RoomState room = roomEngine.getRoom(roomId);
 
-        if (room != null){
-
-            roomEngine.leaveRoom(room, sessionId);
-            messagingTemplate.convertAndSend("/topic/room/" + roomId, new DisconnectEventMessage(nickname));
-        }
+        roomEngine.leaveRoom(roomId, sessionId);
+        messagingTemplate.convertAndSend("/topic/room/" + roomId, new DisconnectEventMessage(nickname));
     }
 
 }

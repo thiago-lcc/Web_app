@@ -1,8 +1,7 @@
 package com.myapp.controller;
 
 import com.myapp.logic.room.RoomEngine;
-import com.myapp.model.room.Player;
-import com.myapp.model.room.RoomState;
+import com.myapp.logic.room.RoomGateway;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -19,7 +18,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
@@ -35,14 +33,14 @@ public class RoomController {
     public record RemoveEventMessage(String removedNickname){}
     public record StartEventMessage(boolean gameStarted){}
 
-    public record GetRoomResponse(List<Player> players){}
-
     private final RoomEngine roomEngine;
+    private final RoomGateway roomGateway;
     private final SimpMessagingTemplate messageTemplate;
 
-    public RoomController(RoomEngine roomEngine, SimpMessagingTemplate messageTemplate){
+    public RoomController(RoomEngine roomEngine, RoomGateway roomGateway, SimpMessagingTemplate messageTemplate){
 
         this.roomEngine = roomEngine;
+        this.roomGateway = roomGateway;
         this.messageTemplate = messageTemplate;
     }
 
@@ -50,7 +48,7 @@ public class RoomController {
     public void createRoom(@Valid CreateRequestMessage msg, SimpMessageHeaderAccessor accessor){
 
         String sessionId = accessor.getSessionId();
-        String roomId = roomEngine.createRoom(msg.creatorNickname(), sessionId);
+        String roomId = roomGateway.createRoom(msg.creatorNickname(), sessionId);
 
         Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
         if(sessionAttributes == null)
@@ -76,7 +74,6 @@ public class RoomController {
     public JoinEventMessage joinRoom(@DestinationVariable String roomId, @Valid JoinRequestMessage msg,
                                      SimpMessageHeaderAccessor accessor){
 
-        RoomState room = roomEngine.getRoom(roomId);
         String nickname = msg.joinedNickname();
 
         Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
@@ -86,7 +83,7 @@ public class RoomController {
         sessionAttributes.put("roomId", roomId);
         sessionAttributes.put("nickname", nickname);
 
-        roomEngine.joinRoom(room, accessor.getSessionId(),nickname);
+        roomGateway.joinRoom(roomId, accessor.getSessionId(),nickname);
 
         return new JoinEventMessage(nickname);
     }
@@ -95,9 +92,7 @@ public class RoomController {
     @SendTo("/topic/room/{roomId}")
     public LeaveEventMessage leaveRoom(@DestinationVariable String roomId, SimpMessageHeaderAccessor accessor){
 
-        RoomState room = roomEngine.getRoom(roomId);
-
-        String nickname = roomEngine.leaveRoom(room, accessor.getSessionId());
+        String nickname = roomEngine.leaveRoom(roomId, accessor.getSessionId());
 
         Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
         if(sessionAttributes == null)
@@ -114,11 +109,9 @@ public class RoomController {
     public RemoveEventMessage removeFromRoom(@DestinationVariable String roomId, SimpMessageHeaderAccessor accessor,
                                              @Valid RemoveRequestMessage msg){
 
-        RoomState room = roomEngine.getRoom(roomId);
-
         String nickname = msg.removedNickname();
 
-        roomEngine.removeFromRoom(room, accessor.getSessionId(), nickname);
+        roomEngine.removeFromRoom(roomId, accessor.getSessionId(), nickname);
 
         return new RemoveEventMessage(nickname);
     }
@@ -134,12 +127,11 @@ public class RoomController {
 
     @GetMapping("/room/{roomId}")
     @ResponseBody
-    public GetRoomResponse getRoom(@PathVariable String roomId){
+    public RoomEngine.GetRoomResponse getRoom(@PathVariable String roomId){
 
         try{
 
-            RoomState room = roomEngine.getRoom(roomId);
-            return new GetRoomResponse(room.getPlayers());
+           return roomEngine.getRoomResponse(roomId);
         }
         catch (NoSuchElementException e){
 

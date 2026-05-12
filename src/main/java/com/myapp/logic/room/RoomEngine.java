@@ -6,75 +6,30 @@ import com.myapp.model.room.Player;
 import com.myapp.model.room.RoomState;
 import org.springframework.stereotype.Service;
 
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Random;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
 
 @Service
 public class RoomEngine {
 
-    private final Map<String, RoomState> rooms = new ConcurrentHashMap<>();
-
+    private final RoomStorage roomStorage;
     private final GameEngine gameEngine;
 
-    public RoomEngine(GameEngine gameEngine) {
+    public record GetRoomResponse(List<Player> players){}
 
+    public RoomEngine(GameEngine gameEngine, RoomStorage roomStorage) {
+
+        this.roomStorage = roomStorage;
         this.gameEngine = gameEngine;
     }
 
 
-    public String createRoom(String nickname, String ownerToken){
-
-        String roomId = UUID.randomUUID()
-                .toString()
-                .replace("-", "");
-
-        Player owner = new Player(nickname, true, true);
-
-        rooms.put(roomId, new RoomState(ownerToken, owner));
-        return roomId;
-    }
-
-    public RoomState getRoom(String roomId){
-
-        RoomState room = rooms.get(roomId);
-        if(room == null)
-            throw new NoSuchElementException("Room not found");
-
-        return room;
-    }
-
-    public void removeRoom(RoomState room){
-
-        rooms.values().remove(room);
-    }
-
-    public void joinRoom(RoomState room, String playerToken, String nickname){
-
-        synchronized (room){
-
-            if(room.isFull())
-                throw new IllegalStateException("Room is full");
-
-            if(room.nicknameTaken(nickname))
-                throw new IllegalArgumentException("Nickname is already taken");
-
-            if(room.getPlayerByToken(playerToken) != null)
-                throw new IllegalStateException("User is already this game");
-
-            room.addNewPlayer(playerToken, new Player(nickname, false, false));
-        }
-    }
-
-    public void throwIfPlayerIsNull(Player player){
+    private void throwIfPlayerIsNull(Player player){
 
         if(player == null)
             throw new NoSuchElementException("Player does not exist");
     }
 
-    public void throwIfNotOwner(RoomState room, String ownerToken){
+    private void throwIfNotOwner(RoomState room, String ownerToken){
 
         synchronized (room){
 
@@ -85,7 +40,7 @@ public class RoomEngine {
         }
     }
 
-    public void makeRandomGuesser(RoomState room){
+    private void makeRandomGuesser(RoomState room){
 
         synchronized (room){
 
@@ -96,7 +51,7 @@ public class RoomEngine {
         }
     }
 
-    public void makeRandomOwner(RoomState room){
+    private void makeRandomOwner(RoomState room){
 
         synchronized (room){
 
@@ -107,7 +62,9 @@ public class RoomEngine {
         }
     }
 
-    public String leaveRoom(RoomState room,String playerToken){
+    public String leaveRoom(String roomId,String playerToken){
+
+        RoomState room = roomStorage.getRoom(roomId);
 
         synchronized (room) {
 
@@ -117,7 +74,7 @@ public class RoomEngine {
             room.removePlayer(player);
 
             if (room.isEmpty())
-                removeRoom(room);
+                roomStorage.removeRoom(room);
             else{
                 if (player.isGuesser())
                     makeRandomGuesser(room);
@@ -129,7 +86,9 @@ public class RoomEngine {
         }
     }
 
-    public void removeFromRoom(RoomState room, String ownerToken, String nickname){
+    public void removeFromRoom(String roomId, String ownerToken, String nickname){
+
+        RoomState room = roomStorage.getRoom(roomId);
 
         synchronized (room){
             throwIfNotOwner(room, ownerToken);
@@ -149,7 +108,7 @@ public class RoomEngine {
 
     public void startGame(String roomId, String ownerToken){
 
-        RoomState room = rooms.get(roomId);
+        RoomState room = roomStorage.getRoom(roomId);
 
         synchronized (room){
 
@@ -172,7 +131,16 @@ public class RoomEngine {
 
             }
 
-            removeRoom(room);
+            roomStorage.removeRoom(room);
         }
+    }
+
+    public GetRoomResponse getRoomResponse(String roomId){
+
+        RoomState room = roomStorage.getRoom(roomId);
+
+        return new GetRoomResponse(
+                room.getPlayers()
+        );
     }
 }
