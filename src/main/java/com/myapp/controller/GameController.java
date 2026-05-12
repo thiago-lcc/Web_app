@@ -8,17 +8,20 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
+import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@RestController
-@RequestMapping("/game")
+@Controller
 public class GameController {
 
-    public record QuestionRequestBody(@NotBlank String guesserToken, @NotBlank @Size(max = 100) String question){}
-    public record AnswerRequestBody(@NotBlank String impostorToken, @NotBlank @Size(max = 100) String answer){}
-    public record EliminateRequestBody(@NotBlank String guesserToken, @Min(1) @Max(8) int eliminatedId){}
+    public record QuestionMsg(@NotBlank @Size(max = 100) String question){}
+    public record AnswerMsg(@NotBlank @Size(max = 100) String answer){}
+    public record EliminateMsg(@Min(1) @Max(8) int eliminatedId){}
 
     public record GetGameResponse(String currQuestion, List<Round> rounds, GameState.Phase gamePhase, String whoWon){}
 
@@ -30,42 +33,36 @@ public class GameController {
     }
 
 
-    @PostMapping("/{gameId}/start")
-    public void startGame(@PathVariable String gameId){
+    @MessageMapping("/game/{gameId}/question")
+    @SendTo("/topic/game/{gameId}")
+    public QuestionMsg askQuestion(@PathVariable String gameId, @Valid QuestionMsg msg, SimpMessageHeaderAccessor accessor){
 
         GameState game = engine.getGame(gameId);
-        engine.startGame(game);
+        engine.addNewQuestion(game, msg.question(), accessor.getSessionId());
+
+        return msg;
     }
 
-    @PostMapping("/{gameId}/question")
-    public void askQuestion(@PathVariable String gameId, @RequestBody @Valid QuestionRequestBody req){
+    @MessageMapping("/game/{gameId}/answer")
+    @SendTo("/topic/game/{gameId}")
+    public void answerQuestion(@PathVariable String gameId, @Valid AnswerMsg req, SimpMessageHeaderAccessor accessor){
 
         GameState game = engine.getGame(gameId);
-        engine.addNewQuestion(game, req.question(), req.guesserToken());
+        engine.addImpostorMessage(game, req.answer(), accessor.getSessionId());
     }
 
-    @PostMapping("/{gameId}/answer")
-    public void answerQuestion(@PathVariable String gameId, @RequestBody @Valid AnswerRequestBody req){
+    @MessageMapping("/game/{gameId}/eliminate")
+    @SendTo("/topic/game/{gameId}")
+    public EliminateMsg eliminateAgent(@PathVariable String gameId, @Valid EliminateMsg msg, SimpMessageHeaderAccessor accessor){
 
         GameState game = engine.getGame(gameId);
-        engine.addImpostorMessage(game, req.answer(), req.impostorToken());
+        engine.eliminateAgent(game, msg.eliminatedId(), accessor.getSessionId());
+
+        return msg;
     }
 
-    @PostMapping("/{gameId}/round")
-    public Round playRound(@PathVariable String gameId){
-
-        GameState game = engine.getGame(gameId);
-        return engine.playRound(game);
-    }
-
-    @PostMapping("/{gameId}/eliminate")
-    public void eliminateAgent(@PathVariable String gameId, @RequestBody @Valid EliminateRequestBody req){
-
-        GameState game = engine.getGame(gameId);
-        engine.eliminateAgent(game, req.eliminatedId(), req.guesserToken());
-    }
-
-    @GetMapping("/{gameId}")
+    @GetMapping("/game/{gameId}")
+    @ResponseBody
     public GetGameResponse getGame(@PathVariable String gameId){
 
         GameState game = engine.getGame(gameId);

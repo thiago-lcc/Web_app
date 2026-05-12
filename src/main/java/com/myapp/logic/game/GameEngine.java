@@ -5,7 +5,9 @@ import com.myapp.model.game.Agent;
 import com.myapp.model.game.GameState;
 import com.myapp.model.game.Message;
 import com.myapp.model.game.Round;
+import com.myapp.model.room.Player;
 import org.springframework.http.HttpStatus;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -19,13 +21,15 @@ import java.util.concurrent.ConcurrentHashMap;
 public class GameEngine {
 
     private final AiService aiService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     private final Map<String, GameState> games = new ConcurrentHashMap<>();
 
 
-    public GameEngine(AiService aiService) {
+    public GameEngine(AiService aiService, SimpMessagingTemplate messagingTemplate) {
 
         this.aiService = aiService;
+        this.messagingTemplate = messagingTemplate;
     }
 
 
@@ -69,53 +73,29 @@ public class GameEngine {
 
     public void assignImpostor(GameState game, String impostorToken){
 
-        synchronized (game){
-
-            if(game.getPhase() != GameState.Phase.WAITING_FOR_START)
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Cannot assign impostor after the game started");
-
             List<Integer> availableIds = game.availableImpostorIds();
-
-            if (availableIds.isEmpty())
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "All impostor roles are already assigned");
 
             int impostorId = availableIds.get(
                  new Random().nextInt(availableIds.size()));
 
             game.setImpostorToken(impostorToken, impostorId);
-        }
 
     }
 
-    public void assignGuesser(GameState game, String guesserToken) {
+    public void assignPlayers(GameState game, Map<String, Player> playerMap) {
 
         synchronized (game){
 
-            if(game.getPhase() != GameState.Phase.WAITING_FOR_START)
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Cannot assign guesser after the game started");
+            playerMap.forEach((token, player) -> {
 
-            if (game.getGuesserToken() != null)
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Guesser role was already assigned");
+                if(player.isGuesser())
+                    game.setGuesserToken(token);
 
-            game.setGuesserToken(guesserToken);
-        }
-    }
+                else {
+                    assignImpostor(game, token);
+                }
 
-    public void startGame(GameState game){
-
-        synchronized (game){
-
-            if(game.getPhase() != GameState.Phase.WAITING_FOR_START)
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Game has already started");
-
-            if(!game.canStart())
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Not all players have joined yet");
+            });
 
             game.setPhase(GameState.Phase.WAITING_FOR_QUESTION);
         }
@@ -158,7 +138,7 @@ public class GameEngine {
                 game.addImpostorMessage(message);
 
                 if (game.numPendingMessages() == game.numCurrAgents())
-                    game.setPhase(GameState.Phase.WAITING_FOR_ROUND);
+                    messagingTemplate.convertAndSend(playRound(game));
 
             } catch (IllegalArgumentException e) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
@@ -170,10 +150,13 @@ public class GameEngine {
 
         try{
             List<Message> aiMessages = aiService.getMessages(game.getCurrQuestion(), game.currAis());
-            game.addAiMessages(aiMessages);
 
-            if (game.numPendingMessages() == game.numCurrAgents())
-                game.setPhase(GameState.Phase.WAITING_FOR_ROUND);
+            synchronized (game){
+
+                game.addAiMessages(aiMessages);
+                if (game.numPendingMessages() == game.numCurrAgents())
+                    messagingTemplate.convertAndSend(playRound(game));
+            }
 
         }
         catch (Exception e){
@@ -212,11 +195,6 @@ public class GameEngine {
     public Round playRound(GameState game) {
 
         synchronized (game) {
-
-            if (game.getPhase() != GameState.Phase.WAITING_FOR_ROUND)
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Cannot play round in current phase");
-
 
             List<Message> messages = new ArrayList<>(game.getPendingMessages());
 

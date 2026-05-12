@@ -10,7 +10,6 @@ public class GameState {
         WAITING_FOR_START,
         WAITING_FOR_QUESTION,
         WAITING_FOR_ANSWERS,
-        WAITING_FOR_ROUND,
         WAITING_FOR_ELIMINATION,
         OVER
     }
@@ -167,11 +166,6 @@ public class GameState {
 
         return null;
 
-    }
-
-    public boolean canStart(){
-
-        return (totalImpostors() == idsByToken.size() && getGuesserToken() != null);
     }
 
     public List<Round> getRounds() {

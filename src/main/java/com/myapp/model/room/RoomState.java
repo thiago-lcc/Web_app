@@ -13,6 +13,11 @@ public class RoomState {
         addNewPlayer(playerToken, player);
     }
 
+    public Map<String, Player> getPlayerMap(){
+
+        return playerByToken;
+    }
+
     public void addNewPlayer(String playerToken, Player player){
 
         playerByToken.put(playerToken, player);
@@ -26,12 +31,6 @@ public class RoomState {
     public List<Player> getPlayers(){
 
         return playerByToken.values()
-                .stream().toList();
-    }
-
-    public List<String> getTokens(){
-
-        return playerByToken.keySet()
                 .stream().toList();
     }
 

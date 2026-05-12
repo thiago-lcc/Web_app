@@ -120,16 +120,7 @@ public class RoomEngine {
             gameEngine.createGame(room.numPlayers() - 1, roomId);
             GameState game = gameEngine.getGame(roomId);
 
-            for(String playerToken: room.getTokens()){
-
-                Player player = room.getPlayerByToken(playerToken);
-
-                if(player.isGuesser())
-                    gameEngine.assignGuesser(game, playerToken);
-                else
-                    gameEngine.assignImpostor(game, playerToken);
-
-            }
+            gameEngine.assignPlayers(game, room.getPlayerMap());
 
             roomStorage.removeRoom(room);
         }
