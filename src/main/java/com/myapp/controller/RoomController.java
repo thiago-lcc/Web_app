@@ -3,6 +3,10 @@ package com.myapp.controller;
 import com.myapp.logic.room.RoomEngine;
 import com.myapp.model.room.Player;
 import com.myapp.model.room.RoomState;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import org.springframework.http.HttpStatus;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
@@ -12,18 +16,22 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 
 @Controller
 public class RoomController {
 
-    public record JoinRequestMessage(String joinedNickname){}
+    public record JoinRequestMessage(@NotBlank @Size(max = 25) String joinedNickname){}
     public record JoinEventMessage(String joinedNickname){}
-    public record CreateRequestMessage(String creatorNickname){}
+    public record CreateRequestMessage(@NotBlank @Size(max = 25) String creatorNickname){}
     public record CreateResponseMessage(String roomId){}
     public record LeaveEventMessage(String leftNickname){}
-    public record RemoveRequestMessage(String removedNickname){}
+    public record RemoveRequestMessage(@NotBlank @Size(max = 25) String removedNickname){}
     public record RemoveEventMessage(String removedNickname){}
     public record StartEventMessage(boolean gameStarted){}
 
@@ -39,10 +47,17 @@ public class RoomController {
     }
 
     @MessageMapping("/room/create")
-    public void createRoom(CreateRequestMessage msg, SimpMessageHeaderAccessor accessor){
+    public void createRoom(@Valid CreateRequestMessage msg, SimpMessageHeaderAccessor accessor){
 
         String sessionId = accessor.getSessionId();
         String roomId = roomEngine.createRoom(msg.creatorNickname(), sessionId);
+
+        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+        if(sessionAttributes == null)
+            throw new IllegalStateException("Invalid WebSocket connection or with no attributes");
+
+        sessionAttributes.put("roomId", roomId);
+        sessionAttributes.put("nickname", msg.creatorNickname());
 
         // temporary: replace once guest logic is created
         SimpMessageHeaderAccessor headerAccessor = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE);
@@ -58,11 +73,18 @@ public class RoomController {
 
     @MessageMapping("/room/{roomId}/join")
     @SendTo("/topic/room/{roomId}")
-    public JoinEventMessage joinRoom(@DestinationVariable String roomId, JoinRequestMessage msg,
+    public JoinEventMessage joinRoom(@DestinationVariable String roomId, @Valid JoinRequestMessage msg,
                                      SimpMessageHeaderAccessor accessor){
 
         RoomState room = roomEngine.getRoom(roomId);
         String nickname = msg.joinedNickname();
+
+        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+        if(sessionAttributes == null)
+            throw new IllegalStateException("Invalid WebSocket connection or with no attributes");
+
+        sessionAttributes.put("roomId", roomId);
+        sessionAttributes.put("nickname", nickname);
 
         roomEngine.joinRoom(room, accessor.getSessionId(),nickname);
 
@@ -77,13 +99,20 @@ public class RoomController {
 
         String nickname = roomEngine.leaveRoom(room, accessor.getSessionId());
 
+        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+        if(sessionAttributes == null)
+            throw new IllegalStateException("Invalid WebSocket connection or with no attributes");
+
+        sessionAttributes.remove("roomId");
+        sessionAttributes.remove("nickname");
+
         return new LeaveEventMessage(nickname);
     }
 
     @MessageMapping("/room/{roomId}/remove")
     @SendTo("/topic/room/{roomId}")
     public RemoveEventMessage removeFromRoom(@DestinationVariable String roomId, SimpMessageHeaderAccessor accessor,
-                                             RemoveRequestMessage msg){
+                                             @Valid RemoveRequestMessage msg){
 
         RoomState room = roomEngine.getRoom(roomId);
 
@@ -104,10 +133,18 @@ public class RoomController {
     }
 
     @GetMapping("/room/{roomId}")
+    @ResponseBody
     public GetRoomResponse getRoom(@PathVariable String roomId){
 
-        RoomState room = roomEngine.getRoom(roomId);
+        try{
 
-        return new GetRoomResponse(room.getPlayers());
+            RoomState room = roomEngine.getRoom(roomId);
+            return new GetRoomResponse(room.getPlayers());
+        }
+        catch (NoSuchElementException e){
+
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+            e.getMessage());
+        }
     }
 }
