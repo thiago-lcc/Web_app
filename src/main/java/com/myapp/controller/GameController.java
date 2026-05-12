@@ -8,13 +8,16 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import org.springframework.http.HttpStatus;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 
 @Controller
 public class GameController {
@@ -65,9 +68,13 @@ public class GameController {
     @ResponseBody
     public GetGameResponse getGame(@PathVariable String gameId){
 
-        GameState game = engine.getGame(gameId);
-
-        return new GetGameResponse(game.getCurrQuestion(), game.getRounds(), game.getPhase(), game.whoWon());
+        try{
+            GameState game = engine.getGame(gameId);
+            return new GetGameResponse(game.getCurrQuestion(), game.getRounds(), game.getPhase(), game.whoWon());
+        }
+        catch (NoSuchElementException e){
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
+        }
     }
 
 }

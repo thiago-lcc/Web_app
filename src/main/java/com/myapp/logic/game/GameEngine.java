@@ -6,11 +6,10 @@ import com.myapp.model.game.GameState;
 import com.myapp.model.game.Message;
 import com.myapp.model.game.Round;
 import com.myapp.model.room.Player;
-import org.springframework.http.HttpStatus;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.server.ServerErrorException;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -45,7 +44,7 @@ public class GameEngine {
 
         GameState game = games.get(gameId);
         if (game == null)
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Game not found");
+            throw new NoSuchElementException("Game not found");
 
         return game;
     }
@@ -120,29 +119,22 @@ public class GameEngine {
         synchronized (game) {
 
             if (game.getPhase() != GameState.Phase.WAITING_FOR_ANSWERS)
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Cannot accept answers at current phase");
+                throw new IllegalStateException("Cannot accept answers at current phase");
 
-            try {
-                int id = game.getIdByToken(token);
+            int id = game.getIdByToken(token);
 
-                if (!game.getAgent(id).isALive())
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "Cannot accept answers from agents that were eliminated");
+            if (!game.getAgent(id).isALive())
+                    throw new IllegalStateException("Cannot accept answers from agents that were eliminated");
 
-                if (game.alreadyAnswered(id))
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "Impostor already answered this round");
+            if (game.alreadyAnswered(id))
+                throw new IllegalStateException("Impostor already answered this round");
 
-                Message message = new Message(id, answer);
-                game.addImpostorMessage(message);
+            Message message = new Message(id, answer);
+            game.addImpostorMessage(message);
 
-                if (game.numPendingMessages() == game.numCurrAgents())
-                    messagingTemplate.convertAndSend(playRound(game));
+            if (game.numPendingMessages() == game.numCurrAgents())
+                messagingTemplate.convertAndSend(playRound(game));
 
-            } catch (IllegalArgumentException e) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
-            }
         }
     }
 
@@ -168,8 +160,7 @@ public class GameEngine {
                 game.discardCurrQuestion();
             }
 
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Failed to get AI answers", e);
+            throw new ServerErrorException("Failed to get AI answers", e);
         }
     }
 
@@ -178,11 +169,10 @@ public class GameEngine {
         synchronized (game){
 
             if(game.getPhase() != GameState.Phase.WAITING_FOR_QUESTION)
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Cannot accept questions at current phase");
+                throw new IllegalStateException("Cannot accept questions at current phase");
+
             if(!token.equals(game.getGuesserToken()))
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Guesser token does not match");
+                throw new IllegalArgumentException("Guesser token does not match");
 
             game.setCurrQuestion(question);
 
@@ -217,29 +207,23 @@ public class GameEngine {
         synchronized (game) {
 
             if (game.getPhase() != GameState.Phase.WAITING_FOR_ELIMINATION)
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Cannot eliminate agent in current phase");
+                throw new IllegalStateException("Cannot eliminate agent in current phase");
 
             if (!token.equals(game.getGuesserToken()))
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Guesser token does not match");
+                throw new IllegalArgumentException("Guesser token does not match");
 
-            try {
-                Agent agent = game.getAgent(id);
+            Agent agent = game.getAgent(id);
 
-                if (!agent.isALive())
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Agent was already eliminated");
+            if (!agent.isALive())
+                throw new IllegalStateException("Agent was already eliminated");
 
-                agent.eliminate();
+            agent.eliminate();
 
-                if (!game.isOver())
-                    game.setPhase(GameState.Phase.WAITING_FOR_QUESTION);
-                else
-                    game.setPhase(GameState.Phase.OVER);
+            if (!game.isOver())
+                game.setPhase(GameState.Phase.WAITING_FOR_QUESTION);
+            else
+                game.setPhase(GameState.Phase.OVER);
 
-            } catch (IllegalArgumentException e) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Agent does not exist");
-            }
         }
     }
 }
