@@ -1,7 +1,6 @@
 package com.myapp.logic.room;
 
-import com.myapp.logic.game.GameEngine;
-import com.myapp.model.game.GameState;
+import com.myapp.logic.game.GameGateway;
 import com.myapp.model.room.Player;
 import com.myapp.model.room.RoomState;
 import org.springframework.stereotype.Service;
@@ -12,14 +11,14 @@ import java.util.*;
 public class RoomEngine {
 
     private final RoomStorage roomStorage;
-    private final GameEngine gameEngine;
+    private final GameGateway gameGateway;
 
     public record GetRoomResponse(List<Player> players){}
 
-    public RoomEngine(GameEngine gameEngine, RoomStorage roomStorage) {
+    public RoomEngine(GameGateway gameGateway, RoomStorage roomStorage) {
 
         this.roomStorage = roomStorage;
-        this.gameEngine = gameEngine;
+        this.gameGateway = gameGateway;
     }
 
 
@@ -117,10 +116,9 @@ public class RoomEngine {
             if(room.numPlayers() == 1)
                 throw new IllegalStateException("Room needs at least 2 players to start game");
 
-            gameEngine.createGame(room.numPlayers() - 1, roomId);
-            GameState game = gameEngine.getGame(roomId);
+            gameGateway.createGame(room.numPlayers() - 1, roomId);
 
-            gameEngine.assignPlayers(game, room.getPlayerMap());
+            gameGateway.assignPlayers(roomId, room.getPlayerMap());
 
             roomStorage.removeRoom(room);
         }

@@ -1,14 +1,13 @@
 package com.myapp.controller;
 
 import com.myapp.logic.game.GameEngine;
-import com.myapp.model.game.GameState;
-import com.myapp.model.game.Round;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
+import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
@@ -16,61 +15,51 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.List;
 import java.util.NoSuchElementException;
 
 @Controller
+@CrossOrigin
 public class GameController {
 
-    public record QuestionMsg(@NotBlank @Size(max = 100) String question){}
+    public record QuestionRequestMsg(@NotBlank @Size(max = 100) String question){}
     public record AnswerMsg(@NotBlank @Size(max = 100) String answer){}
-    public record EliminateMsg(@Min(1) @Max(8) int eliminatedId){}
+    public record EliminateRequestMsg(@Min(1) @Max(8) int eliminatedId){}
 
-    public record GetGameResponse(String currQuestion, List<Round> rounds, GameState.Phase gamePhase, String whoWon){}
-
-    private final GameEngine engine;
+    private final GameEngine gameEngine;
 
     public GameController(GameEngine gameEngine){
 
-        this.engine = gameEngine;
+        this.gameEngine = gameEngine;
     }
 
 
     @MessageMapping("/game/{gameId}/question")
     @SendTo("/topic/game/{gameId}")
-    public QuestionMsg askQuestion(@PathVariable String gameId, @Valid QuestionMsg msg, SimpMessageHeaderAccessor accessor){
+    public void askQuestion(@DestinationVariable String gameId, @Valid GameController.QuestionRequestMsg msg, SimpMessageHeaderAccessor accessor){
 
-        GameState game = engine.getGame(gameId);
-        engine.addNewQuestion(game, msg.question(), accessor.getSessionId());
-
-        return msg;
+        gameEngine.addNewQuestion(gameId, msg.question(), accessor.getSessionId());
     }
 
     @MessageMapping("/game/{gameId}/answer")
-    @SendTo("/topic/game/{gameId}")
-    public void answerQuestion(@PathVariable String gameId, @Valid AnswerMsg req, SimpMessageHeaderAccessor accessor){
+    public void answerQuestion(@DestinationVariable String gameId, @Valid AnswerMsg msg, SimpMessageHeaderAccessor accessor){
 
-        GameState game = engine.getGame(gameId);
-        engine.addImpostorMessage(game, req.answer(), accessor.getSessionId());
+        gameEngine.addImpostorMessage(gameId, msg.answer(), accessor.getSessionId());
     }
 
     @MessageMapping("/game/{gameId}/eliminate")
     @SendTo("/topic/game/{gameId}")
-    public EliminateMsg eliminateAgent(@PathVariable String gameId, @Valid EliminateMsg msg, SimpMessageHeaderAccessor accessor){
+    public void eliminateAgent(@DestinationVariable String gameId, @Valid EliminateRequestMsg msg, SimpMessageHeaderAccessor accessor){
 
-        GameState game = engine.getGame(gameId);
-        engine.eliminateAgent(game, msg.eliminatedId(), accessor.getSessionId());
+        gameEngine.eliminateAgent(gameId, msg.eliminatedId(), accessor.getSessionId());
 
-        return msg;
     }
 
     @GetMapping("/game/{gameId}")
     @ResponseBody
-    public GetGameResponse getGame(@PathVariable String gameId){
+    public GameEngine.GetGameResponse getGame(@PathVariable String gameId){
 
         try{
-            GameState game = engine.getGame(gameId);
-            return new GetGameResponse(game.getCurrQuestion(), game.getRounds(), game.getPhase(), game.whoWon());
+            return gameEngine.getGameResponse(gameId);
         }
         catch (NoSuchElementException e){
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());

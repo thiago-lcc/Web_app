@@ -13,6 +13,7 @@ import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessageType;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -22,6 +23,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 
 @Controller
+@CrossOrigin
 public class RoomController {
 
     public record JoinRequestMessage(@NotBlank @Size(max = 25) String joinedNickname){}

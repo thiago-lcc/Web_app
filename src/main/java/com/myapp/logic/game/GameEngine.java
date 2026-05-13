@@ -5,116 +5,34 @@ import com.myapp.model.game.Agent;
 import com.myapp.model.game.GameState;
 import com.myapp.model.game.Message;
 import com.myapp.model.game.Round;
-import com.myapp.model.room.Player;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ServerErrorException;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class GameEngine {
 
+    public record GetGameResponse(String currQuestion, List<Round> rounds, GameState.Phase gamePhase, String whoWon){}
+    public record QuestionEventMsg(String question){}
+    public record EliminateResponseMsg(int eliminatedId){}
+    public record GameOverEventMsg(String winner, int lastElimination) {}
+
     private final AiService aiService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final GameStorage gameStorage;
 
-    private final Map<String, GameState> games = new ConcurrentHashMap<>();
-
-
-    public GameEngine(AiService aiService, SimpMessagingTemplate messagingTemplate) {
+    public GameEngine(AiService aiService, SimpMessagingTemplate messagingTemplate, GameStorage gameStorage) {
 
         this.aiService = aiService;
         this.messagingTemplate = messagingTemplate;
+        this.gameStorage = gameStorage;
     }
 
+    public void addImpostorMessage(String gameId, String answer, String token){
 
-
-    public void createGame(int numImpostors, String gameId) {
-
-        List<Agent> agents = createAgents(numImpostors);
-
-        games.put(gameId, new GameState(agents));
-    }
-
-    public GameState getGame(String gameId) {
-
-        GameState game = games.get(gameId);
-        if (game == null)
-            throw new NoSuchElementException("Game not found");
-
-        return game;
-    }
-
-    //runs every minute
-    @Scheduled(fixedRate = 60000)
-    public void deleteFinishedGames(){
-
-        //removes game if it's over for more than 10 minutes
-        games.entrySet().removeIf(entry ->
-                entry.getValue().getPhase() == GameState.Phase.OVER &&
-                entry.getValue().finishedAt().isBefore(Instant.now().minus(Duration.ofMinutes(10))));
-    }
-
-    private List<Integer> createImpostorIds(int numImpostors) {
-
-        return new Random()
-                //Ids must be in the interval [1,8]
-                .ints(1, 9)
-                .distinct()
-                .limit(numImpostors)
-                .boxed()
-                .toList();
-    }
-
-    public void assignImpostor(GameState game, String impostorToken){
-
-            List<Integer> availableIds = game.availableImpostorIds();
-
-            int impostorId = availableIds.get(
-                 new Random().nextInt(availableIds.size()));
-
-            game.setImpostorToken(impostorToken, impostorId);
-
-    }
-
-    public void assignPlayers(GameState game, Map<String, Player> playerMap) {
-
-        synchronized (game){
-
-            playerMap.forEach((token, player) -> {
-
-                if(player.isGuesser())
-                    game.setGuesserToken(token);
-
-                else {
-                    assignImpostor(game, token);
-                }
-
-            });
-
-            game.setPhase(GameState.Phase.WAITING_FOR_QUESTION);
-        }
-    }
-
-    private List<Agent> createAgents(int numImpostors) {
-
-        List<Integer> impostorIds = createImpostorIds(numImpostors);
-
-        List<Agent> agents = new ArrayList<>();
-
-        for (int impostorId : impostorIds) agents.add(new Agent(impostorId, true));
-        for (int i = 1; i < 9; i++)
-            if (!impostorIds.contains(i))
-                agents.add(new Agent(i, false));
-
-        return agents;
-    }
-
-    public void addImpostorMessage(GameState game, String answer, String token){
+        GameState game = gameStorage.getGame(gameId);
 
         synchronized (game) {
 
@@ -133,21 +51,25 @@ public class GameEngine {
             game.addImpostorMessage(message);
 
             if (game.numPendingMessages() == game.numCurrAgents())
-                messagingTemplate.convertAndSend(playRound(game));
+                messagingTemplate.convertAndSend("/topic/game/" + gameId, playRound(game));
 
         }
     }
 
-    public void addAiMessages(GameState game){
+    private void addAiMessages(String gameId){
+
+        GameState game = gameStorage.getGame(gameId);
 
         try{
+            messagingTemplate.convertAndSend("/topic/game/" + gameId,new QuestionEventMsg(game.getCurrQuestion()));
             List<Message> aiMessages = aiService.getMessages(game.getCurrQuestion(), game.currAis());
+
 
             synchronized (game){
 
                 game.addAiMessages(aiMessages);
                 if (game.numPendingMessages() == game.numCurrAgents())
-                    messagingTemplate.convertAndSend(playRound(game));
+                    messagingTemplate.convertAndSend("/topic/game/" + gameId, playRound(game));
             }
 
         }
@@ -164,7 +86,9 @@ public class GameEngine {
         }
     }
 
-    public void addNewQuestion(GameState game, String question, String token){
+    public void addNewQuestion(String gameId, String question, String token){
+
+        GameState game = gameStorage.getGame(gameId);
 
         synchronized (game){
 
@@ -179,10 +103,10 @@ public class GameEngine {
             game.setPhase(GameState.Phase.WAITING_FOR_ANSWERS);
         }
 
-        addAiMessages(game);
+        addAiMessages(gameId);
     }
 
-    public Round playRound(GameState game) {
+    private Round playRound(GameState game) {
 
         synchronized (game) {
 
@@ -202,7 +126,9 @@ public class GameEngine {
             }
         }
 
-    public void eliminateAgent(GameState game, int id, String token) {
+    public void eliminateAgent(String gameId, int id, String token) {
+
+        GameState game = gameStorage.getGame(gameId);
 
         synchronized (game) {
 
@@ -219,11 +145,33 @@ public class GameEngine {
 
             agent.eliminate();
 
-            if (!game.isOver())
+            if (!game.isOver()){
                 game.setPhase(GameState.Phase.WAITING_FOR_QUESTION);
-            else
-                game.setPhase(GameState.Phase.OVER);
+                messagingTemplate.convertAndSend("/topic/game/" + gameId,
+                        new EliminateResponseMsg(id));
+            }
 
+            else{
+                game.setPhase(GameState.Phase.OVER);
+                messagingTemplate.convertAndSend("/topic/game/" + gameId,
+                        new GameOverEventMsg(game.whoWon(), id));
+            }
+
+        }
+    }
+
+    public GetGameResponse getGameResponse(String gameId){
+
+        GameState game = gameStorage.getGame(gameId);
+
+        synchronized (game){
+
+            return new GetGameResponse(
+                game.getCurrQuestion(),
+                game.getRounds(),
+                game.getPhase(),
+                game.whoWon()
+            );
         }
     }
 }
