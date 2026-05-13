@@ -1,6 +1,7 @@
 package com.myapp.controller.event;
 
 import com.myapp.logic.room.RoomEngine;
+import com.myapp.model.game.GameEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
@@ -21,6 +22,14 @@ public class WebSocketEventListener {
 
         this.roomEngine = roomEngine;
         this.messagingTemplate = messagingTemplate;
+    }
+
+    @EventListener
+    public void handleGameEvent(GameEvent<?> event){
+        messagingTemplate.convertAndSend(
+                "/topic/game/" + event.gameId(),
+                event.msg()
+                );
     }
 
     @EventListener

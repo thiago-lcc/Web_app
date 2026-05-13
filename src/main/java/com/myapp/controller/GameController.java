@@ -9,7 +9,6 @@ import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
@@ -34,7 +33,6 @@ public class GameController {
 
 
     @MessageMapping("/game/{gameId}/question")
-    @SendTo("/topic/game/{gameId}")
     public void askQuestion(@DestinationVariable String gameId, @Valid GameController.QuestionRequestMsg msg, SimpMessageHeaderAccessor accessor){
 
         gameEngine.addNewQuestion(gameId, msg.question(), accessor.getSessionId());
@@ -47,7 +45,6 @@ public class GameController {
     }
 
     @MessageMapping("/game/{gameId}/eliminate")
-    @SendTo("/topic/game/{gameId}")
     public void eliminateAgent(@DestinationVariable String gameId, @Valid EliminateRequestMsg msg, SimpMessageHeaderAccessor accessor){
 
         gameEngine.eliminateAgent(gameId, msg.eliminatedId(), accessor.getSessionId());

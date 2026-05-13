@@ -1,11 +1,9 @@
 package com.myapp.logic.game;
 
 import com.myapp.logic.game.ai.AiService;
-import com.myapp.model.game.Agent;
-import com.myapp.model.game.GameState;
-import com.myapp.model.game.Message;
-import com.myapp.model.game.Round;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import com.myapp.model.game.*;
+import com.myapp.model.game.GameState.Phase;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ServerErrorException;
 
@@ -14,19 +12,20 @@ import java.util.*;
 @Service
 public class GameEngine {
 
-    public record GetGameResponse(String currQuestion, List<Round> rounds, GameState.Phase gamePhase, String whoWon){}
+    public record GetGameResponse(String currQuestion, List<Round> rounds, Phase gamePhase, String whoWon){}
     public record QuestionEventMsg(String question){}
-    public record EliminateResponseMsg(int eliminatedId){}
+    public record PlayRoundEventMsg(Round round){}
+    public record EliminateEventMsg(int eliminatedId){}
     public record GameOverEventMsg(String winner, int lastElimination) {}
 
+    private final ApplicationEventPublisher eventPublisher;
     private final AiService aiService;
-    private final SimpMessagingTemplate messagingTemplate;
     private final GameStorage gameStorage;
 
-    public GameEngine(AiService aiService, SimpMessagingTemplate messagingTemplate, GameStorage gameStorage) {
+    public GameEngine(AiService aiService, ApplicationEventPublisher eventPublisher, GameStorage gameStorage) {
 
         this.aiService = aiService;
-        this.messagingTemplate = messagingTemplate;
+        this.eventPublisher = eventPublisher;
         this.gameStorage = gameStorage;
     }
 
@@ -36,7 +35,7 @@ public class GameEngine {
 
         synchronized (game) {
 
-            if (game.getPhase() != GameState.Phase.WAITING_FOR_ANSWERS)
+            if (game.getPhase() != Phase.WAITING_FOR_ANSWERS)
                 throw new IllegalStateException("Cannot accept answers at current phase");
 
             int id = game.getIdByToken(token);
@@ -51,7 +50,10 @@ public class GameEngine {
             game.addImpostorMessage(message);
 
             if (game.numPendingMessages() == game.numCurrAgents())
-                messagingTemplate.convertAndSend("/topic/game/" + gameId, playRound(game));
+                eventPublisher.publishEvent(new GameEvent<>(
+                        gameId,
+                        new PlayRoundEventMsg(playRound(game))
+                ));
 
         }
     }
@@ -61,7 +63,10 @@ public class GameEngine {
         GameState game = gameStorage.getGame(gameId);
 
         try{
-            messagingTemplate.convertAndSend("/topic/game/" + gameId,new QuestionEventMsg(game.getCurrQuestion()));
+            eventPublisher.publishEvent(new GameEvent<>(
+                    gameId,
+                    new QuestionEventMsg(game.getCurrQuestion())));
+
             List<Message> aiMessages = aiService.getMessages(game.getCurrQuestion(), game.currAis());
 
 
@@ -69,7 +74,10 @@ public class GameEngine {
 
                 game.addAiMessages(aiMessages);
                 if (game.numPendingMessages() == game.numCurrAgents())
-                    messagingTemplate.convertAndSend("/topic/game/" + gameId, playRound(game));
+                    eventPublisher.publishEvent(new GameEvent<>(
+                            gameId,
+                            new PlayRoundEventMsg(playRound(game))
+                    ));
             }
 
         }
@@ -77,7 +85,7 @@ public class GameEngine {
 
             synchronized (game){
 
-                game.setPhase(GameState.Phase.WAITING_FOR_QUESTION);
+                game.setPhase(Phase.WAITING_FOR_QUESTION);
                 game.clearPendingMessages();
                 game.discardCurrQuestion();
             }
@@ -92,7 +100,7 @@ public class GameEngine {
 
         synchronized (game){
 
-            if(game.getPhase() != GameState.Phase.WAITING_FOR_QUESTION)
+            if(game.getPhase() != Phase.WAITING_FOR_QUESTION)
                 throw new IllegalStateException("Cannot accept questions at current phase");
 
             if(!token.equals(game.getGuesserToken()))
@@ -100,7 +108,7 @@ public class GameEngine {
 
             game.setCurrQuestion(question);
 
-            game.setPhase(GameState.Phase.WAITING_FOR_ANSWERS);
+            game.setPhase(Phase.WAITING_FOR_ANSWERS);
         }
 
         addAiMessages(gameId);
@@ -116,7 +124,7 @@ public class GameEngine {
 
             Round round = new Round(game.getCurrQuestion(), messages, game.roundNum() + 1);
             game.addRound(round);
-            game.setPhase(GameState.Phase.WAITING_FOR_ELIMINATION);
+            game.setPhase(Phase.WAITING_FOR_ELIMINATION);
 
             game.clearPendingMessages();
             game.discardCurrQuestion();
@@ -132,7 +140,7 @@ public class GameEngine {
 
         synchronized (game) {
 
-            if (game.getPhase() != GameState.Phase.WAITING_FOR_ELIMINATION)
+            if (game.getPhase() != Phase.WAITING_FOR_ELIMINATION)
                 throw new IllegalStateException("Cannot eliminate agent in current phase");
 
             if (!token.equals(game.getGuesserToken()))
@@ -146,15 +154,18 @@ public class GameEngine {
             agent.eliminate();
 
             if (!game.isOver()){
-                game.setPhase(GameState.Phase.WAITING_FOR_QUESTION);
-                messagingTemplate.convertAndSend("/topic/game/" + gameId,
-                        new EliminateResponseMsg(id));
+                game.setPhase(Phase.WAITING_FOR_QUESTION);
+                eventPublisher.publishEvent(new GameEvent<>(
+                        gameId,
+                        new EliminateEventMsg(id)
+                ));
             }
 
             else{
-                game.setPhase(GameState.Phase.OVER);
-                messagingTemplate.convertAndSend("/topic/game/" + gameId,
-                        new GameOverEventMsg(game.whoWon(), id));
+                game.setPhase(Phase.OVER);
+                eventPublisher.publishEvent(new GameEvent<>(
+                        gameId,
+                        new GameOverEventMsg(game.whoWon(), id)));
             }
 
         }
