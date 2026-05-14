@@ -28,7 +28,8 @@ public class RoomController {
 
     public record JoinRequestMessage(@NotBlank @Size(max = 25) String joinedNickname){}
     public record JoinEventMessage(String joinedNickname){}
-    public record CreateRequestMessage(@NotBlank @Size(max = 25) String creatorNickname){}
+    public record CreateRequestMessage(@NotBlank @Size(max = 25) String creatorNickname,
+                                       @Size(max = 32) String roomName){}
     public record CreateResponseMessage(String roomId){}
     public record LeaveEventMessage(String leftNickname){}
     public record RemoveRequestMessage(@NotBlank @Size(max = 25) String removedNickname){}
@@ -50,7 +51,7 @@ public class RoomController {
     public void createRoom(@Valid CreateRequestMessage msg, SimpMessageHeaderAccessor accessor){
 
         String sessionId = accessor.getSessionId();
-        String roomId = roomGateway.createRoom(msg.creatorNickname(), sessionId);
+        String roomId = roomGateway.createRoom(msg.creatorNickname(), sessionId, msg.roomName());
 
         Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
         if(sessionAttributes == null)

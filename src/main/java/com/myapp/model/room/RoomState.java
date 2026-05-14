@@ -7,15 +7,27 @@ import java.util.Map;
 public class RoomState {
 
     private final Map<String, Player> playerByToken = new HashMap<>();
+    private final String name;
 
-    public RoomState(String playerToken, Player player){
+    public RoomState(String playerToken, Player player, String name){
 
         addNewPlayer(playerToken, player);
+
+        if(!(name == null || name.isEmpty()))
+            this.name = name;
+        else
+            this.name = player.getNickname() + "'s room";
+
     }
 
     public Map<String, Player> getPlayerMap(){
 
         return playerByToken;
+    }
+
+    public String getName(){
+
+        return name;
     }
 
     public void addNewPlayer(String playerToken, Player player){

@@ -16,7 +16,7 @@ public class RoomGateway {
         this.roomStorage = roomStorage;
     }
 
-    public String createRoom(String nickname, String ownerToken){
+    public String createRoom(String nickname, String ownerToken, String name){
 
         String roomId = UUID.randomUUID()
                 .toString()
@@ -24,7 +24,7 @@ public class RoomGateway {
 
         Player owner = new Player(nickname, true, true);
 
-        roomStorage.addRoom(roomId, new RoomState(ownerToken, owner));
+        roomStorage.addRoom(roomId, new RoomState(ownerToken, owner, name));
         return roomId;
     }
 

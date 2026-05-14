@@ -1,6 +1,7 @@
 package com.myapp.controller.event;
 
 import com.myapp.logic.room.RoomEngine;
+import com.myapp.logic.room.RoomStorage.LobbyUpdateEvent;
 import com.myapp.model.game.GameEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -22,6 +23,12 @@ public class WebSocketEventListener {
 
         this.roomEngine = roomEngine;
         this.messagingTemplate = messagingTemplate;
+    }
+
+    @EventListener
+    public void handleLobbyUpdateEvent(LobbyUpdateEvent event){
+
+        messagingTemplate.convertAndSend("/topic/lobby", event.msg());
     }
 
     @EventListener
