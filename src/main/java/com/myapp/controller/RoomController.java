@@ -1,7 +1,7 @@
 package com.myapp.controller;
 
 import com.myapp.logic.room.RoomEngine;
-import com.myapp.logic.room.RoomGateway;
+import com.myapp.logic.room.RoomEngine.GetRoomResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -10,8 +10,6 @@ import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
-import org.springframework.messaging.simp.SimpMessageType;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,70 +24,18 @@ import java.util.NoSuchElementException;
 @CrossOrigin
 public class RoomController {
 
-    public record JoinRequestMessage(@NotBlank @Size(max = 25) String joinedNickname){}
-    public record JoinEventMessage(String joinedNickname){}
-    public record CreateRequestMessage(@NotBlank @Size(max = 25) String creatorNickname,
-                                       @Size(max = 32) String roomName){}
-    public record CreateResponseMessage(String roomId){}
     public record LeaveEventMessage(String leftNickname){}
     public record RemoveRequestMessage(@NotBlank @Size(max = 25) String removedNickname){}
     public record RemoveEventMessage(String removedNickname){}
     public record StartEventMessage(boolean gameStarted){}
 
     private final RoomEngine roomEngine;
-    private final RoomGateway roomGateway;
-    private final SimpMessagingTemplate messageTemplate;
 
-    public RoomController(RoomEngine roomEngine, RoomGateway roomGateway, SimpMessagingTemplate messageTemplate){
+    public RoomController(RoomEngine roomEngine){
 
         this.roomEngine = roomEngine;
-        this.roomGateway = roomGateway;
-        this.messageTemplate = messageTemplate;
     }
 
-    @MessageMapping("/room/create")
-    public void createRoom(@Valid CreateRequestMessage msg, SimpMessageHeaderAccessor accessor){
-
-        String sessionId = accessor.getSessionId();
-        String roomId = roomGateway.createRoom(msg.creatorNickname(), sessionId, msg.roomName());
-
-        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
-        if(sessionAttributes == null)
-            throw new IllegalStateException("Invalid WebSocket connection or with no attributes");
-
-        sessionAttributes.put("roomId", roomId);
-        sessionAttributes.put("nickname", msg.creatorNickname());
-
-        // temporary: replace once guest logic is created
-        SimpMessageHeaderAccessor headerAccessor = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE);
-        headerAccessor.setSessionId(sessionId);
-        headerAccessor.setLeaveMutable(true);
-
-        messageTemplate.convertAndSendToUser(
-                sessionId,
-                "/queue/room/created",
-                new CreateResponseMessage(roomId),
-                headerAccessor.getMessageHeaders());
-    }
-
-    @MessageMapping("/room/{roomId}/join")
-    @SendTo("/topic/room/{roomId}")
-    public JoinEventMessage joinRoom(@DestinationVariable String roomId, @Valid JoinRequestMessage msg,
-                                     SimpMessageHeaderAccessor accessor){
-
-        String nickname = msg.joinedNickname();
-
-        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
-        if(sessionAttributes == null)
-            throw new IllegalStateException("Invalid WebSocket connection or with no attributes");
-
-        sessionAttributes.put("roomId", roomId);
-        sessionAttributes.put("nickname", nickname);
-
-        roomGateway.joinRoom(roomId, accessor.getSessionId(),nickname);
-
-        return new JoinEventMessage(nickname);
-    }
 
     @MessageMapping("/room/{roomId}/leave")
     @SendTo("/topic/room/{roomId}")
@@ -130,7 +76,7 @@ public class RoomController {
 
     @GetMapping("/room/{roomId}")
     @ResponseBody
-    public RoomEngine.GetRoomResponse getRoom(@PathVariable String roomId){
+    public GetRoomResponse getRoom(@PathVariable String roomId){
 
         try{
 

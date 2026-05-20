@@ -45,14 +45,19 @@ public class RoomStorage {
         rooms.values().remove(room);
     }
 
-    // runs every 3 seconds
-    @Scheduled(fixedRate = 3000)
-    public void publishRoomSummaries(){
+    public List<RoomSummary> getRoomSummaries(){
 
         List<RoomSummary> summaries = new ArrayList<>();
         rooms.forEach((id, room) ->
                 summaries.add(new RoomSummary(id, room.getName(), room.numPlayers())));
 
-        eventPublisher.publishEvent(new LobbyUpdateEvent(summaries));
+        return summaries;
+    }
+
+    // runs every 3 seconds
+    @Scheduled(fixedRate = 3000)
+    public void publishRoomSummaries(){
+
+        eventPublisher.publishEvent(new LobbyUpdateEvent(getRoomSummaries()));
     }
 }

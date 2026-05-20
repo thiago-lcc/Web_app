@@ -3,7 +3,9 @@ package com.myapp.logic.room;
 import com.myapp.model.room.Player;
 import com.myapp.model.room.RoomState;
 import org.springframework.stereotype.Service;
+import com.myapp.logic.room.RoomStorage.RoomSummary;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -45,5 +47,10 @@ public class RoomGateway {
 
             room.addNewPlayer(playerToken, new Player(nickname, false, false));
         }
+    }
+
+    public List<RoomSummary> getRoomSummaries(){
+
+        return roomStorage.getRoomSummaries();
     }
 }
