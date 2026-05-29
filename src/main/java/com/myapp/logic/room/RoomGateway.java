@@ -36,14 +36,14 @@ public class RoomGateway {
 
         synchronized (room){
 
+            if(room.getPlayerByToken(playerToken) != null)
+                throw new IllegalStateException("User is already in this game");
+
             if(room.isFull())
                 throw new IllegalStateException("Room is full");
 
             if(room.nicknameTaken(nickname))
                 throw new IllegalArgumentException("Nickname is already taken");
-
-            if(room.getPlayerByToken(playerToken) != null)
-                throw new IllegalStateException("User is already this game");
 
             room.addNewPlayer(playerToken, new Player(nickname, false, false));
         }

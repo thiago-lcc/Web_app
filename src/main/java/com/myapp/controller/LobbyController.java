@@ -40,12 +40,15 @@ public class LobbyController {
     @SendToUser("/queue/lobby")
     public CreateResponseMessage createRoom(@Valid CreateRequestMessage msg, SimpMessageHeaderAccessor accessor){
 
-        String sessionId = accessor.getSessionId();
-        String roomId = roomGateway.createRoom(msg.creatorNickname(), sessionId, msg.roomName());
-
         Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
         if(sessionAttributes == null)
             throw new IllegalStateException("Invalid WebSocket connection or with no attributes");
+
+        if(sessionAttributes.get("roomId") != null || sessionAttributes.get("nickname") != null)
+            throw new IllegalStateException("Cannot create room while in another room");
+
+        String sessionId = accessor.getSessionId();
+        String roomId = roomGateway.createRoom(msg.creatorNickname(), sessionId, msg.roomName());
 
         sessionAttributes.put("roomId", roomId);
         sessionAttributes.put("nickname", msg.creatorNickname());
@@ -58,11 +61,14 @@ public class LobbyController {
     public JoinMessage joinRoom(@DestinationVariable String roomId, @Valid JoinMessage msg,
                                                     SimpMessageHeaderAccessor accessor){
 
-        String nickname = msg.joinedNickname();
-
         Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
         if(sessionAttributes == null)
             throw new IllegalStateException("Invalid WebSocket connection or with no attributes");
+
+        if(sessionAttributes.get("roomId") != null || sessionAttributes.get("nickname") != null)
+            throw new IllegalStateException("Cannot join room while in another room");
+
+        String nickname = msg.joinedNickname();
 
         sessionAttributes.put("roomId", roomId);
         sessionAttributes.put("nickname", nickname);
