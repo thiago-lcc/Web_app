@@ -80,6 +80,15 @@ public class RoomState {
         player.setAsRoomOwner();
     }
 
+    public Player getGuesser(){
+
+        List<Player> players = getPlayers();
+        return players.stream()
+                .filter(Player::isGuesser)
+                .findFirst()
+                .orElse(null);
+    }
+
     public boolean nicknameTaken(String nickname){
 
         return playerByToken.values().stream()

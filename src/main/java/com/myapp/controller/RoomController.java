@@ -28,6 +28,8 @@ public class RoomController {
     public record RemoveRequestMessage(@NotBlank @Size(max = 25) String removedNickname){}
     public record RemoveEventMessage(String removedNickname){}
     public record StartEventMessage(boolean gameStarted){}
+    public record NewOwnerEventMessage(@NotBlank @Size(max =25) String newOwner){}
+    public record NewGuesserEventMessage(@NotBlank @Size(max =25) String newGuesser){}
 
     private final RoomEngine roomEngine;
 
@@ -72,6 +74,24 @@ public class RoomController {
         roomEngine.startGame(roomId, accessor.getSessionId());
 
         return new StartEventMessage(true);
+    }
+
+    @MessageMapping("/room/{roomId}/owner")
+    @SendTo("/topic/room/{roomId}")
+    public NewOwnerEventMessage makeOwner(@DestinationVariable String roomId, SimpMessageHeaderAccessor accessor, @Valid NewOwnerEventMessage msg){
+
+        roomEngine.makeOwner(roomId, accessor.getSessionId(), msg.newOwner());
+
+        return new NewOwnerEventMessage(msg.newOwner());
+    }
+
+    @MessageMapping("/room/{roomId}/owner")
+    @SendTo("/topic/room/{roomId}")
+    public NewGuesserEventMessage makeGuesser(@DestinationVariable String roomId, SimpMessageHeaderAccessor accessor, @Valid NewGuesserEventMessage msg){
+
+        roomEngine.makeGuesser(roomId, accessor.getSessionId(), msg.newGuesser());
+
+        return new NewGuesserEventMessage(msg.newGuesser());
     }
 
     @GetMapping("/room/{roomId}")

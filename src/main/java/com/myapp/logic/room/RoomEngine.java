@@ -61,6 +61,40 @@ public class RoomEngine {
         }
     }
 
+    public void makeOwner(String roomId, String ownerToken, String nickname){
+
+        RoomState room = roomStorage.getRoom(roomId);
+
+        synchronized (room){
+            throwIfNotOwner(room, ownerToken);
+
+            Player player = room.getPlayerByNickname(nickname);
+            throwIfPlayerIsNull(player);
+
+            if(nickname.equals(room.getPlayerByToken(ownerToken).getNickname()))
+                throw new IllegalStateException("Player is already owner");
+
+            room.setOwner(player);
+        }
+    }
+
+    public void makeGuesser(String roomId, String ownerToken, String nickname){
+
+        RoomState room = roomStorage.getRoom(roomId);
+
+        synchronized (room){
+            throwIfNotOwner(room, ownerToken);
+
+            Player player = room.getPlayerByNickname(nickname);
+            throwIfPlayerIsNull(player);
+
+            if(nickname.equals(room.getGuesser().getNickname()))
+                throw new IllegalStateException("Player is already guesser");
+
+            room.setOwner(player);
+        }
+    }
+
     public String leaveRoom(String roomId,String playerToken){
 
         RoomState room = roomStorage.getRoom(roomId);
