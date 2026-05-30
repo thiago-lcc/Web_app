@@ -13,10 +13,10 @@ import java.util.*;
 public class GameEngine {
 
     public record GetGameResponse(String currQuestion, List<Round> rounds, Phase gamePhase, String whoWon){}
-    public record QuestionEventMsg(String question){}
-    public record PlayRoundEventMsg(Round round){}
-    public record EliminateEventMsg(int eliminatedId){}
-    public record GameOverEventMsg(String winner, int lastElimination) {}
+    public record QuestionEventMsg(String type, String question){}
+    public record PlayRoundEventMsg(String type, Round round){}
+    public record EliminateEventMsg(String type, int eliminatedId){}
+    public record GameOverEventMsg(String type, String winner, int lastElimination) {}
 
     private final ApplicationEventPublisher eventPublisher;
     private final AiService aiService;
@@ -52,7 +52,7 @@ public class GameEngine {
             if (game.numPendingMessages() == game.numCurrAgents())
                 eventPublisher.publishEvent(new GameEvent<>(
                         gameId,
-                        new PlayRoundEventMsg(playRound(game))
+                        new PlayRoundEventMsg("ROUND", playRound(game))
                 ));
 
         }
@@ -65,7 +65,7 @@ public class GameEngine {
         try{
             eventPublisher.publishEvent(new GameEvent<>(
                     gameId,
-                    new QuestionEventMsg(game.getCurrQuestion())));
+                    new QuestionEventMsg("QUESTION", game.getCurrQuestion())));
 
             List<Message> aiMessages = aiService.getMessages(game.getCurrQuestion(), game.currAis());
 
@@ -76,7 +76,7 @@ public class GameEngine {
                 if (game.numPendingMessages() == game.numCurrAgents())
                     eventPublisher.publishEvent(new GameEvent<>(
                             gameId,
-                            new PlayRoundEventMsg(playRound(game))
+                            new PlayRoundEventMsg("ROUND", playRound(game))
                     ));
             }
 
@@ -157,7 +157,7 @@ public class GameEngine {
                 game.setPhase(Phase.WAITING_FOR_QUESTION);
                 eventPublisher.publishEvent(new GameEvent<>(
                         gameId,
-                        new EliminateEventMsg(id)
+                        new EliminateEventMsg("PLAYER_ELIMINATED", id)
                 ));
             }
 
@@ -165,7 +165,7 @@ public class GameEngine {
                 game.setPhase(Phase.OVER);
                 eventPublisher.publishEvent(new GameEvent<>(
                         gameId,
-                        new GameOverEventMsg(game.whoWon(), id)));
+                        new GameOverEventMsg("GAME_OVER" ,game.whoWon(), id)));
             }
 
         }

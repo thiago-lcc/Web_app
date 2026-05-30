@@ -24,8 +24,9 @@ public class LobbyController {
 
     public record CreateRequestMessage(@NotBlank @Size(max = 25) String creatorNickname,
                                        @Size(max = 32) String roomName){}
-    public record CreateResponseMessage(String roomId){}
-    public record JoinMessage(@NotBlank @Size(max = 25) String joinedNickname){}
+    public record CreateResponseMessage(String type, String roomId){}
+    public record JoinRequestMessage(@NotBlank @Size(max = 25) String nickname){}
+    public record JoinEventMessage(String type, String nickname){}
 
     public record GetLobbyResponse(List<RoomSummary> lobby){}
 
@@ -53,12 +54,12 @@ public class LobbyController {
         sessionAttributes.put("roomId", roomId);
         sessionAttributes.put("nickname", msg.creatorNickname());
 
-        return new CreateResponseMessage(roomId);
+        return new CreateResponseMessage("ROOM_CREATED",roomId);
     }
 
     @MessageMapping("/lobby/join-room/{roomId}")
     @SendTo("/topic/room/{roomId}")
-    public JoinMessage joinRoom(@DestinationVariable String roomId, @Valid JoinMessage msg,
+    public JoinEventMessage joinRoom(@DestinationVariable String roomId, @Valid JoinRequestMessage msg,
                                                     SimpMessageHeaderAccessor accessor){
 
         Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
@@ -68,14 +69,14 @@ public class LobbyController {
         if(sessionAttributes.get("roomId") != null || sessionAttributes.get("nickname") != null)
             throw new IllegalStateException("Cannot join room while in another room");
 
-        String nickname = msg.joinedNickname();
+        String nickname = msg.nickname();
 
         sessionAttributes.put("roomId", roomId);
         sessionAttributes.put("nickname", nickname);
 
         roomGateway.joinRoom(roomId, accessor.getSessionId(),nickname);
 
-        return new JoinMessage(nickname);
+        return new JoinEventMessage("PLAYER_JOINED", nickname);
     }
 
     @GetMapping("/lobby")

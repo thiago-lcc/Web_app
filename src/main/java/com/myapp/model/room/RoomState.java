@@ -89,6 +89,15 @@ public class RoomState {
                 .orElse(null);
     }
 
+    public Player getOwner(){
+
+        List<Player> players = getPlayers();
+        return players.stream()
+                .filter(Player::isRoomOwner)
+                .findFirst()
+                .orElse(null);
+    }
+
     public boolean nicknameTaken(String nickname){
 
         return playerByToken.values().stream()

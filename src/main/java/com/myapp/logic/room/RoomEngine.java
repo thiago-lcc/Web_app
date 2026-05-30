@@ -14,6 +14,8 @@ public class RoomEngine {
     private final GameGateway gameGateway;
 
     public record GetRoomResponse(List<Player> players){}
+    public record PlayerLeftEventMessage(String type, String nickname, String owner, String guesser){}
+    public record PlayerRemovedEventMessage(String type, String nickname, String guesser){}
 
     public RoomEngine(GameGateway gameGateway, RoomStorage roomStorage) {
 
@@ -91,11 +93,11 @@ public class RoomEngine {
             if(nickname.equals(room.getGuesser().getNickname()))
                 throw new IllegalStateException("Player is already guesser");
 
-            room.setOwner(player);
+            room.setGuesser(player);
         }
     }
 
-    public String leaveRoom(String roomId,String playerToken){
+    public PlayerLeftEventMessage leaveRoom(String roomId,String playerToken){
 
         RoomState room = roomStorage.getRoom(roomId);
 
@@ -115,11 +117,14 @@ public class RoomEngine {
                     makeRandomOwner(room);
             }
 
-            return player.getNickname();
+            return new PlayerLeftEventMessage("PLAYER_LEFT",
+                    player.getNickname(),
+                    room.getOwner().getNickname(),
+                    room.getGuesser().getNickname());
         }
     }
 
-    public void removeFromRoom(String roomId, String ownerToken, String nickname){
+    public PlayerRemovedEventMessage removeFromRoom(String roomId, String ownerToken, String nickname){
 
         RoomState room = roomStorage.getRoom(roomId);
 
@@ -136,6 +141,10 @@ public class RoomEngine {
 
             if(player.isGuesser())
                 makeRandomGuesser(room);
+
+            return new PlayerRemovedEventMessage("PLAYER_REMOVED",
+                    nickname,
+                    room.getGuesser().getNickname());
         }
     }
 

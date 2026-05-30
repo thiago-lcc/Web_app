@@ -2,6 +2,8 @@ package com.myapp.controller;
 
 import com.myapp.logic.room.RoomEngine;
 import com.myapp.logic.room.RoomEngine.GetRoomResponse;
+import com.myapp.logic.room.RoomEngine.PlayerRemovedEventMessage;
+import com.myapp.logic.room.RoomEngine.PlayerLeftEventMessage;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -24,12 +26,10 @@ import java.util.NoSuchElementException;
 @CrossOrigin
 public class RoomController {
 
-    public record LeaveEventMessage(String leftNickname){}
-    public record RemoveRequestMessage(@NotBlank @Size(max = 25) String removedNickname){}
-    public record RemoveEventMessage(String removedNickname){}
-    public record StartEventMessage(boolean gameStarted){}
-    public record NewOwnerEventMessage(@NotBlank @Size(max =25) String newOwner){}
-    public record NewGuesserEventMessage(@NotBlank @Size(max =25) String newGuesser){}
+    public record PlayerEventMessage(String type, String nickname){}
+    public record PlayerRequestMessage(@NotBlank @Size(max =25) String nickname){}
+    public record StartEventMessage(String type){}
+
 
     private final RoomEngine roomEngine;
 
@@ -41,30 +41,26 @@ public class RoomController {
 
     @MessageMapping("/room/{roomId}/leave")
     @SendTo("/topic/room/{roomId}")
-    public LeaveEventMessage leaveRoom(@DestinationVariable String roomId, SimpMessageHeaderAccessor accessor){
-
-        String nickname = roomEngine.leaveRoom(roomId, accessor.getSessionId());
+    public PlayerLeftEventMessage leaveRoom(@DestinationVariable String roomId, SimpMessageHeaderAccessor accessor){
 
         Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
         if(sessionAttributes == null)
             throw new IllegalStateException("Invalid WebSocket connection or with no attributes");
 
+        PlayerLeftEventMessage eventMessage = roomEngine.leaveRoom(roomId, accessor.getSessionId());
+
         sessionAttributes.remove("roomId");
         sessionAttributes.remove("nickname");
 
-        return new LeaveEventMessage(nickname);
+        return eventMessage;
     }
 
     @MessageMapping("/room/{roomId}/remove")
     @SendTo("/topic/room/{roomId}")
-    public RemoveEventMessage removeFromRoom(@DestinationVariable String roomId, SimpMessageHeaderAccessor accessor,
-                                             @Valid RemoveRequestMessage msg){
+    public PlayerRemovedEventMessage removeFromRoom(@DestinationVariable String roomId, SimpMessageHeaderAccessor accessor,
+                                             @Valid PlayerRequestMessage msg){
 
-        String nickname = msg.removedNickname();
-
-        roomEngine.removeFromRoom(roomId, accessor.getSessionId(), nickname);
-
-        return new RemoveEventMessage(nickname);
+        return roomEngine.removeFromRoom(roomId, accessor.getSessionId(), msg.nickname());
     }
 
     @MessageMapping("/room/{roomId}/start")
@@ -73,25 +69,25 @@ public class RoomController {
 
         roomEngine.startGame(roomId, accessor.getSessionId());
 
-        return new StartEventMessage(true);
+        return new StartEventMessage("GAME_STARTED");
     }
 
     @MessageMapping("/room/{roomId}/owner")
     @SendTo("/topic/room/{roomId}")
-    public NewOwnerEventMessage makeOwner(@DestinationVariable String roomId, SimpMessageHeaderAccessor accessor, @Valid NewOwnerEventMessage msg){
+    public PlayerEventMessage makeOwner(@DestinationVariable String roomId, SimpMessageHeaderAccessor accessor, @Valid PlayerRequestMessage msg){
 
-        roomEngine.makeOwner(roomId, accessor.getSessionId(), msg.newOwner());
+        roomEngine.makeOwner(roomId, accessor.getSessionId(), msg.nickname());
 
-        return new NewOwnerEventMessage(msg.newOwner());
+        return new PlayerEventMessage("NEW_OWNER",msg.nickname());
     }
 
-    @MessageMapping("/room/{roomId}/owner")
+    @MessageMapping("/room/{roomId}/guesser")
     @SendTo("/topic/room/{roomId}")
-    public NewGuesserEventMessage makeGuesser(@DestinationVariable String roomId, SimpMessageHeaderAccessor accessor, @Valid NewGuesserEventMessage msg){
+    public PlayerEventMessage makeGuesser(@DestinationVariable String roomId, SimpMessageHeaderAccessor accessor, @Valid PlayerRequestMessage msg){
 
-        roomEngine.makeGuesser(roomId, accessor.getSessionId(), msg.newGuesser());
+        roomEngine.makeGuesser(roomId, accessor.getSessionId(), msg.nickname());
 
-        return new NewGuesserEventMessage(msg.newGuesser());
+        return new PlayerEventMessage("NEW_GUESSER",msg.nickname());
     }
 
     @GetMapping("/room/{roomId}")
