@@ -77,10 +77,10 @@ public class GameGateway {
         return agents;
     }
 
-    public void createGame(int numImpostors, String gameId) {
+    public void createGame(int numImpostors, String gameId, String name, String ownerToken) {
 
         List<Agent> agents = createAgents(numImpostors);
 
-        gameStorage.addGame(gameId, new GameState(agents));
+        gameStorage.addGame(gameId, new GameState(agents, ownerToken, name));
     }
 }

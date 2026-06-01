@@ -115,12 +115,17 @@ public class RoomEngine {
                     makeRandomGuesser(room);
                 if (player.isRoomOwner())
                     makeRandomOwner(room);
+
+                return new PlayerLeftEventMessage("PLAYER_LEFT",
+                        player.getNickname(),
+                        room.getOwner().getNickname(),
+                        room.getGuesser().getNickname());
             }
 
             return new PlayerLeftEventMessage("PLAYER_LEFT",
                     player.getNickname(),
-                    room.getOwner().getNickname(),
-                    room.getGuesser().getNickname());
+                    null,
+                    null);
         }
     }
 
@@ -159,7 +164,7 @@ public class RoomEngine {
             if(room.numPlayers() == 1)
                 throw new IllegalStateException("Room needs at least 2 players to start game");
 
-            gameGateway.createGame(room.numPlayers() - 1, roomId);
+            gameGateway.createGame(room.numPlayers() - 1, roomId, room.getName(), ownerToken);
 
             gameGateway.assignPlayers(roomId, room.getPlayerMap());
 

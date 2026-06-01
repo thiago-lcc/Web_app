@@ -1,6 +1,7 @@
 package com.myapp.logic.game;
 
 import com.myapp.logic.game.ai.AiService;
+import com.myapp.logic.room.RoomGateway;
 import com.myapp.model.game.*;
 import com.myapp.model.game.GameState.Phase;
 import org.springframework.context.ApplicationEventPublisher;
@@ -21,12 +22,14 @@ public class GameEngine {
     private final ApplicationEventPublisher eventPublisher;
     private final AiService aiService;
     private final GameStorage gameStorage;
+    private final RoomGateway roomGateway;
 
-    public GameEngine(AiService aiService, ApplicationEventPublisher eventPublisher, GameStorage gameStorage) {
+    public GameEngine(AiService aiService, ApplicationEventPublisher eventPublisher, GameStorage gameStorage, RoomGateway roomGateway) {
 
         this.aiService = aiService;
         this.eventPublisher = eventPublisher;
         this.gameStorage = gameStorage;
+        this.roomGateway = roomGateway;
     }
 
     public void addImpostorMessage(String gameId, String answer, String token){
@@ -185,5 +188,51 @@ public class GameEngine {
             );
         }
     }
+
+    public String createRematch(String gameId, String ownerToken, String nickname){
+
+        GameState game = gameStorage.getGame(gameId);
+
+        synchronized (game){
+
+            System.out.println("Token real de quem clicou: " + ownerToken);
+            System.out.println("Token que foi salvo no GameState: " + game.getOwnerToken());
+
+            if(!game.getOwnerToken().equals(ownerToken))
+                throw new IllegalStateException("Owner token does not match");
+
+            if(!game.isOver())
+                throw new IllegalStateException("Game is not over yet");
+
+            if(game.getRematchId() != null)
+                throw new IllegalStateException("Rematch already created");
+
+            String rematchId = roomGateway.createRoom(nickname, ownerToken, game.getName());
+            game.setRematchId(rematchId);
+
+            return rematchId;
+        }
+
+    }
+
+    public String joinRematch(String gameId, String playerToken, String nickname){
+
+        GameState game = gameStorage.getGame(gameId);
+
+        synchronized (game){
+
+            if(!game.isOver())
+                throw new IllegalStateException("Game is not over yet");
+
+            String rematchId = game.getRematchId();
+            if(rematchId == null)
+                throw new IllegalStateException("Rematch was not created yet");
+
+            roomGateway.joinRoom(rematchId, playerToken, nickname);
+
+            return rematchId;
+        }
+    }
+
 }
 

@@ -19,6 +19,9 @@ public class GameState {
     private final List<Message> pendingMessages = Collections.synchronizedList(new ArrayList<>());
     private final Map<String, Integer> idsByToken = new HashMap<>();
 
+    private final String ownerToken;
+    private String rematchId;
+    private final String name;
     private String currQuestion;
     private String guesserToken;
     private final int totalImpostors;
@@ -26,10 +29,30 @@ public class GameState {
     private Instant finishedAt;
 
 
-    public GameState(List<Agent> agents) {
+    public GameState(List<Agent> agents, String ownerToken, String name) {
 
         this.agents = agents;
+        this.ownerToken = ownerToken;
+        this.name = name;
         this.totalImpostors = numCurrImpostors();
+    }
+
+
+    public String getName() {
+
+        return name;
+    }
+
+    public String getOwnerToken() {
+        return ownerToken;
+    }
+
+    public String getRematchId() {
+        return rematchId;
+    }
+
+    public void setRematchId(String rematchId) {
+        this.rematchId = rematchId;
     }
 
 
