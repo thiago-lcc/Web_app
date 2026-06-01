@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 @Controller
-@CrossOrigin
+@CrossOrigin(origins = "*")
 public class LobbyController {
 
     public record CreateRequestMessage(@NotBlank @Size(max = 25) String creatorNickname,

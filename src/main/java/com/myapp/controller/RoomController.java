@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 
 @Controller
-@CrossOrigin
+@CrossOrigin(origins = "*")
 public class RoomController {
 
     public record PlayerEventMessage(String type, String nickname){}

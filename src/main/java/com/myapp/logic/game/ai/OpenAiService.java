@@ -49,6 +49,7 @@ public class OpenAiService implements AiService {
             return answersString.lines()
                     .map(String::trim)
                     .filter(s -> !s.isEmpty())
+                    .map(s -> s.substring(0, 1).toUpperCase() + s.substring(1))
                     .toList();
         }
     }

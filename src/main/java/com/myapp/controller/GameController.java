@@ -17,7 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.NoSuchElementException;
 
 @Controller
-@CrossOrigin
+@CrossOrigin(origins = "*")
 public class GameController {
 
     public record QuestionRequestMsg(@NotBlank @Size(max = 100) String question){}
