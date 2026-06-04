@@ -3,21 +3,24 @@ package com.myapp.logic.game;
 import com.myapp.model.game.Agent;
 import com.myapp.model.game.GameState;
 import com.myapp.model.room.Player;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 
 @Service
 public class GameGateway {
 
-    private final GameStorage gameStorage;
+    public record AgentIdMsg(String type, int agentId){}
 
-    public GameGateway(GameStorage gameStorage){
+    private final GameStorage gameStorage;
+    private final SimpMessagingTemplate messagingTemplate;
+
+    public GameGateway(GameStorage gameStorage, SimpMessagingTemplate messagingTemplate){
 
         this.gameStorage = gameStorage;
+        this.messagingTemplate = messagingTemplate;
     }
 
     private List<Integer> createImpostorIds(int numImpostors) {
@@ -39,6 +42,14 @@ public class GameGateway {
                 new Random().nextInt(availableIds.size()));
 
         game.setImpostorToken(impostorToken, impostorId);
+
+        // temporary solution
+        messagingTemplate.convertAndSendToUser(
+                impostorToken,
+                "/queue/game",
+                new AgentIdMsg("AGENT_ID", impostorId),
+                Collections.singletonMap(SimpMessageHeaderAccessor.SESSION_ID_HEADER, impostorToken)
+        );
 
     }
 
