@@ -1,5 +1,6 @@
 package com.myapp.logic.room;
 
+import com.myapp.logic.game.GameEngine;
 import com.myapp.logic.game.GameGateway;
 import com.myapp.model.room.Player;
 import com.myapp.model.room.RoomState;
@@ -12,15 +13,17 @@ public class RoomEngine {
 
     private final RoomStorage roomStorage;
     private final GameGateway gameGateway;
+    private final GameEngine gameEngine;
 
     public record GetRoomResponse(List<Player> players){}
     public record PlayerLeftEventMessage(String type, String nickname, String owner, String guesser){}
     public record PlayerRemovedEventMessage(String type, String nickname, String guesser){}
 
-    public RoomEngine(GameGateway gameGateway, RoomStorage roomStorage) {
+    public RoomEngine(GameGateway gameGateway, RoomStorage roomStorage, GameEngine gameEngine) {
 
         this.roomStorage = roomStorage;
         this.gameGateway = gameGateway;
+        this.gameEngine = gameEngine;
     }
 
 
@@ -168,6 +171,8 @@ public class RoomEngine {
 
             gameGateway.assignPlayers(roomId, room.getPlayerMap());
 
+            gameEngine.startGame(roomId);
+
             roomStorage.removeRoom(room);
         }
     }
@@ -176,8 +181,10 @@ public class RoomEngine {
 
         RoomState room = roomStorage.getRoom(roomId);
 
-        return new GetRoomResponse(
-                room.getPlayers()
-        );
+        synchronized (room){
+
+            return new GetRoomResponse(
+                    room.getPlayers());
+        }
     }
 }
