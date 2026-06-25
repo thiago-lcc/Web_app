@@ -69,8 +69,6 @@ public class GameGateway {
                 }
 
             });
-
-            game.setPhase(GameState.Phase.WAITING_FOR_QUESTION);
         }
     }
 

@@ -33,9 +33,13 @@ public class GameStorage {
     @Scheduled(fixedRate = 60000)
     public void deleteFinishedGames(){
 
-        //removes game if it's over for more than 10 minutes
-        games.entrySet().removeIf(entry ->
-                entry.getValue().getPhase() == GameState.Phase.OVER &&
-                        entry.getValue().finishedAt().isBefore(Instant.now().minus(Duration.ofMinutes(10))));
+        //removes game if it's over for more than 5 minutes
+        games.entrySet().removeIf(entry -> {
+            GameState game = entry.getValue();
+            synchronized (game) {
+                return game.getPhase() == GameState.Phase.OVER &&
+                        game.phaseStartedAt().isBefore(Instant.now().minus(Duration.ofMinutes(5)));
+            }
+        });
     }
 }

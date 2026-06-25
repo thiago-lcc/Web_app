@@ -7,7 +7,6 @@ public class GameState {
 
 
     public enum Phase {
-        WAITING_FOR_START,
         WAITING_FOR_QUESTION,
         WAITING_FOR_ANSWERS,
         WAITING_FOR_ELIMINATION,
@@ -25,8 +24,8 @@ public class GameState {
     private String currQuestion;
     private String guesserToken;
     private final int totalImpostors;
-    private Phase phase = Phase.WAITING_FOR_START;
-    private Instant finishedAt;
+    private Phase phase;
+    private Instant phaseStartedAt;
 
 
     public GameState(List<Agent> agents, String ownerToken, String name) {
@@ -149,6 +148,7 @@ public class GameState {
     public void setPhase(Phase phase) {
 
         this.phase = phase;
+        this.phaseStartedAt = Instant.now();
     }
 
     public String getCurrQuestion() {
@@ -168,17 +168,12 @@ public class GameState {
 
     public boolean isOver() {
 
-        if(numCurrImpostors() == 0 || numCurrAis() <= 4 - totalImpostors()){
-
-            this.finishedAt = Instant.now();
-            return true;
-        }
-        return false;
+        return numCurrImpostors() == 0 || numCurrAis() <= 4 - totalImpostors();
     }
 
-    public Instant finishedAt(){
+    public Instant phaseStartedAt(){
 
-        return finishedAt;
+        return phaseStartedAt;
     }
 
     public String whoWon(){

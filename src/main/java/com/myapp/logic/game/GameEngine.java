@@ -8,12 +8,17 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ServerErrorException;
 
+import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Service
 public class GameEngine {
 
-    public record GetGameResponse(String currQuestion, List<Round> rounds, Phase gamePhase, String whoWon){}
+    public record GetGameResponse(String currQuestion, List<Round> rounds, Phase gamePhase, Instant phaseStartedAt, String whoWon){}
     public record QuestionEventMsg(String type, String question){}
     public record PlayRoundEventMsg(String type, Round round){}
     public record EliminateEventMsg(String type, int eliminatedId){}
@@ -23,6 +28,7 @@ public class GameEngine {
     private final AiService aiService;
     private final GameStorage gameStorage;
     private final RoomGateway roomGateway;
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(10);
 
     public GameEngine(AiService aiService, ApplicationEventPublisher eventPublisher, GameStorage gameStorage, RoomGateway roomGateway) {
 
@@ -30,6 +36,135 @@ public class GameEngine {
         this.eventPublisher = eventPublisher;
         this.gameStorage = gameStorage;
         this.roomGateway = roomGateway;
+    }
+
+    private void setPhase(String gameId, Phase phase){
+
+        GameState game = gameStorage.getGame(gameId);
+
+        game.setPhase(phase);
+        Instant newPhaseInstant = Instant.now();
+
+        switch (phase){
+
+            case WAITING_FOR_QUESTION -> {
+                scheduler.schedule(() -> {
+                    if(game.phaseStartedAt().equals(newPhaseInstant))
+                        handleQuestionTimeout(gameId);
+                    },
+                        15 + 1, SECONDS);
+            }
+
+            case WAITING_FOR_ELIMINATION -> {
+                scheduler.schedule(() -> {
+                    if(game.phaseStartedAt().equals(newPhaseInstant))
+                        handleEliminationTimeout(gameId);},
+                        10 + 1, SECONDS);
+            }
+
+            case WAITING_FOR_ANSWERS -> {
+                scheduler.schedule(() -> {
+                    if(game.phaseStartedAt().equals(newPhaseInstant))
+                        handleAnswerTimeout(gameId);},
+                        20 + 1, SECONDS);
+            }
+        }
+
+    }
+
+    public void startGame(String gameId){
+
+        GameState game = gameStorage.getGame(gameId);
+
+        synchronized (game){
+
+            setPhase(gameId, Phase.WAITING_FOR_QUESTION);
+        }
+    }
+
+    private void handleEliminationBroadcast(String gameId, int eliminatedId){
+
+        GameState game = gameStorage.getGame(gameId);
+
+        if (!game.isOver()){
+            setPhase(gameId, Phase.WAITING_FOR_QUESTION);
+            eventPublisher.publishEvent(new GameEvent<>(
+                    gameId,
+                    new EliminateEventMsg("PLAYER_ELIMINATED", eliminatedId)
+            ));
+        }
+
+        else{
+            setPhase(gameId, Phase.OVER);
+            eventPublisher.publishEvent(new GameEvent<>(
+                    gameId,
+                    new GameOverEventMsg("GAME_OVER" ,game.whoWon(), eliminatedId)));
+        }
+    }
+
+    private void handleRoundBroadcast(String gameId, Round round){
+
+        eventPublisher.publishEvent(new GameEvent<>(
+                gameId,
+                new PlayRoundEventMsg("ROUND", round)));
+    }
+
+    private void handleQuestionBroadcast(String gameId){
+
+        GameState game = gameStorage.getGame(gameId);
+
+        eventPublisher.publishEvent(new GameEvent<>(
+                gameId,
+                new QuestionEventMsg("QUESTION", game.getCurrQuestion())));
+    }
+
+    private void handleEliminationTimeout(String gameId){
+
+        GameState game = gameStorage.getGame(gameId);
+
+        synchronized (game){
+
+            List<Agent> agents = game.currAgents();
+
+            Agent agent = agents.get(
+                    new Random().nextInt(agents.size()));
+
+            agent.eliminate();
+
+            handleEliminationBroadcast(gameId, agent.getId());
+        }
+    }
+
+    private void handleAnswerTimeout(String gameId){
+
+        GameState game = gameStorage.getGame(gameId);
+
+        synchronized (game){
+
+            List<Agent> impostors = game.currImpostors();
+            List<Integer> pendingAMessagesIds = game.getPendingMessages()
+                    .stream().map(Message::agentId).toList();
+
+            for(Agent impostor: impostors){
+
+                if(!pendingAMessagesIds.contains(impostor.getId()))
+                    game.addImpostorMessage(new Message(impostor.getId(), "..."));
+            }
+
+            handleRoundBroadcast(gameId, playRound(gameId));
+        }
+    }
+
+    private void handleQuestionTimeout(String gameId){
+
+        GameState game = gameStorage.getGame(gameId);
+
+        synchronized (game){
+
+            game.setCurrQuestion("...");
+            setPhase(gameId, Phase.WAITING_FOR_ANSWERS);
+            handleQuestionBroadcast(gameId);
+        }
     }
 
     public void addImpostorMessage(String gameId, String answer, String token){
@@ -53,10 +188,7 @@ public class GameEngine {
             game.addImpostorMessage(message);
 
             if (game.numPendingMessages() == game.numCurrAgents())
-                eventPublisher.publishEvent(new GameEvent<>(
-                        gameId,
-                        new PlayRoundEventMsg("ROUND", playRound(game))
-                ));
+                handleRoundBroadcast(gameId, playRound(gameId));
 
         }
     }
@@ -66,9 +198,7 @@ public class GameEngine {
         GameState game = gameStorage.getGame(gameId);
 
         try{
-            eventPublisher.publishEvent(new GameEvent<>(
-                    gameId,
-                    new QuestionEventMsg("QUESTION", game.getCurrQuestion())));
+            handleQuestionBroadcast(gameId);
 
             List<Message> aiMessages = aiService.getMessages(game.getCurrQuestion(), game.currAis());
 
@@ -79,7 +209,7 @@ public class GameEngine {
                 if (game.numPendingMessages() == game.numCurrAgents())
                     eventPublisher.publishEvent(new GameEvent<>(
                             gameId,
-                            new PlayRoundEventMsg("ROUND", playRound(game))
+                            new PlayRoundEventMsg("ROUND", playRound(gameId))
                     ));
             }
 
@@ -88,7 +218,7 @@ public class GameEngine {
 
             synchronized (game){
 
-                game.setPhase(Phase.WAITING_FOR_QUESTION);
+                setPhase(gameId, Phase.WAITING_FOR_QUESTION);
                 game.clearPendingMessages();
                 game.discardCurrQuestion();
             }
@@ -111,13 +241,15 @@ public class GameEngine {
 
             game.setCurrQuestion(question);
 
-            game.setPhase(Phase.WAITING_FOR_ANSWERS);
+            setPhase(gameId, Phase.WAITING_FOR_ANSWERS);
         }
 
         addAiMessages(gameId);
     }
 
-    private Round playRound(GameState game) {
+    private Round playRound(String gameId) {
+
+        GameState game = gameStorage.getGame(gameId);
 
         synchronized (game) {
 
@@ -127,7 +259,8 @@ public class GameEngine {
 
             Round round = new Round(game.getCurrQuestion(), messages, game.roundNum() + 1);
             game.addRound(round);
-            game.setPhase(Phase.WAITING_FOR_ELIMINATION);
+
+            setPhase(gameId, Phase.WAITING_FOR_ELIMINATION);
 
             game.clearPendingMessages();
             game.discardCurrQuestion();
@@ -156,20 +289,7 @@ public class GameEngine {
 
             agent.eliminate();
 
-            if (!game.isOver()){
-                game.setPhase(Phase.WAITING_FOR_QUESTION);
-                eventPublisher.publishEvent(new GameEvent<>(
-                        gameId,
-                        new EliminateEventMsg("PLAYER_ELIMINATED", id)
-                ));
-            }
-
-            else{
-                game.setPhase(Phase.OVER);
-                eventPublisher.publishEvent(new GameEvent<>(
-                        gameId,
-                        new GameOverEventMsg("GAME_OVER" ,game.whoWon(), id)));
-            }
+            handleEliminationBroadcast(gameId, id);
 
         }
     }
@@ -184,6 +304,7 @@ public class GameEngine {
                 game.getCurrQuestion(),
                 game.getRounds(),
                 game.getPhase(),
+                game.phaseStartedAt(),
                 game.whoWon()
             );
         }
@@ -194,9 +315,6 @@ public class GameEngine {
         GameState game = gameStorage.getGame(gameId);
 
         synchronized (game){
-
-            System.out.println("Token real de quem clicou: " + ownerToken);
-            System.out.println("Token que foi salvo no GameState: " + game.getOwnerToken());
 
             if(!game.getOwnerToken().equals(ownerToken))
                 throw new IllegalStateException("Owner token does not match");
