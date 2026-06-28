@@ -8,10 +8,13 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ServerErrorException;
 
+import java.net.URI;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -24,18 +27,27 @@ public class GameEngine {
     public record EliminateEventMsg(String type, int eliminatedId){}
     public record GameOverEventMsg(String type, String winner, int lastElimination) {}
 
+    private final List<String> fallbackQuestions = new ArrayList<>();
     private final ApplicationEventPublisher eventPublisher;
     private final AiService aiService;
     private final GameStorage gameStorage;
     private final RoomGateway roomGateway;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(10);
 
-    public GameEngine(AiService aiService, ApplicationEventPublisher eventPublisher, GameStorage gameStorage, RoomGateway roomGateway) {
+    public GameEngine(AiService aiService, ApplicationEventPublisher eventPublisher, GameStorage gameStorage, RoomGateway roomGateway) throws Exception {
 
         this.aiService = aiService;
         this.eventPublisher = eventPublisher;
         this.gameStorage = gameStorage;
         this.roomGateway = roomGateway;
+
+        try{
+        URI uri = GameEngine.class.getResource("/fallbackQuestions.txt").toURI();
+        fallbackQuestions.addAll(Files.readAllLines(Path.of(uri)));}
+
+        catch (Exception e){
+            throw new Exception("Failed to load fallback questions");
+        }
     }
 
     private void setPhase(String gameId, Phase phase){
@@ -113,9 +125,11 @@ public class GameEngine {
 
         GameState game = gameStorage.getGame(gameId);
 
-        eventPublisher.publishEvent(new GameEvent<>(
-                gameId,
-                new QuestionEventMsg("QUESTION", game.getCurrQuestion())));
+        synchronized (game){
+            eventPublisher.publishEvent(new GameEvent<>(
+                    gameId,
+                    new QuestionEventMsg("QUESTION", game.getCurrQuestion())));
+        }
     }
 
     private void handleEliminationTimeout(String gameId){
@@ -158,13 +172,15 @@ public class GameEngine {
     private void handleQuestionTimeout(String gameId){
 
         GameState game = gameStorage.getGame(gameId);
+        int index = new Random().nextInt(fallbackQuestions.size());
 
         synchronized (game){
 
-            game.setCurrQuestion("...");
+            game.setCurrQuestion(fallbackQuestions.get(index));
             setPhase(gameId, Phase.WAITING_FOR_ANSWERS);
-            handleQuestionBroadcast(gameId);
         }
+
+        addAiMessages(gameId);
     }
 
     public void addImpostorMessage(String gameId, String answer, String token){
@@ -206,11 +222,8 @@ public class GameEngine {
             synchronized (game){
 
                 game.addAiMessages(aiMessages);
-                if (game.numPendingMessages() == game.numCurrAgents())
-                    eventPublisher.publishEvent(new GameEvent<>(
-                            gameId,
-                            new PlayRoundEventMsg("ROUND", playRound(gameId))
-                    ));
+                if(game.numPendingMessages() == game.numCurrAgents())
+                    handleRoundBroadcast(gameId, playRound(gameId));
             }
 
         }
